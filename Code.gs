@@ -66,7 +66,7 @@ function setupHeThong() {
       ['TenDoi1', 'Đội 1'],
       ['TenDoi2', 'Đội 2'],
       ['SoNhomMoiDoi', '7'],
-      ['MauChuDao', '#0866FF']
+      ['MauChuDao', '#1B7A43']
     ]);
   }
   // Trigger backup 2h sáng mỗi ngày
@@ -87,7 +87,7 @@ function autoBackup() {
 /* ================== CẤU HÌNH / QUYỀN ================== */
 function getConfig_() {
   const sh = ss_().getSheetByName(TAB_CONF);
-  const cfg = { TenUngDung: 'Chấm công cạo mủ', TenDoi1: 'Đội 1', TenDoi2: 'Đội 2', SoNhomMoiDoi: 7, MauChuDao: '#0866FF' };
+  const cfg = { TenUngDung: 'Sổ Chấm Công Cạo Mủ', TenDoi1: 'Đội 1', TenDoi2: 'Đội 2', SoNhomMoiDoi: 7, MauChuDao: '#1B7A43' };
   if (sh && sh.getLastRow() > 1) {
     sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues().forEach(r => {
       if (r[0]) cfg[String(r[0])] = r[1];
@@ -223,6 +223,16 @@ function getDay(dateISO) {
     }
   }
   return { ok: true, date: dateISO, records };
+}
+
+/* Toàn bộ bản ghi đã tính của 1 tháng — phục vụ dải chọn ngày, thẻ nhóm và chi tiết theo ngày */
+function getMonthDays(month) { // month = 'yyyy-MM'
+  if (!/^\d{4}-\d{2}$/.test(String(month || ''))) throw new Error('Tháng không hợp lệ: ' + month);
+  const all = readAll_();
+  const map = prevMap_(all);
+  const records = all.filter(o => o.Ngay.slice(0, 7) === month)
+    .map(o => derive_(o, findPrev_(map, o)));
+  return { ok: true, month, records };
 }
 
 function checkDay_(dateISO) {
