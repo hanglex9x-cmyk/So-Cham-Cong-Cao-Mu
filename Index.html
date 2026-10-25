@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Chấm công cạo mủ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --accent:#0866FF; --bg:#F0F2F5; --card:#fff; --border:#E4E6EB;
+  --text:#050505; --sub:#65676B; --ok:#1F9D55; --warn:#E8890C; --danger:#D93025;
+  --shadow:0 2px 12px rgba(0,0,0,.08); --radius:16px;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);overscroll-behavior:none;font-size:15px}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:16px;color:var(--text)}
+/* ===== Layout PC ===== */
+.sidebar{display:none}
+.main{max-width:480px;margin:0 auto;padding:14px 12px 96px}
+@media(min-width:1024px){
+  .sidebar{display:flex;flex-direction:column;position:fixed;left:0;top:0;bottom:0;width:280px;background:var(--card);border-right:1px solid var(--border);padding:22px 16px;z-index:20}
+  .main{max-width:1280px;margin-left:280px;padding:26px 28px 40px}
+  .bottomnav{display:none!important}
+  .grid{grid-template-columns:repeat(12,1fr)!important}
+}
+.logo{display:flex;align-items:center;gap:10px;padding:4px 8px 18px}
+.logo .mark{width:42px;height:42px;border-radius:12px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px}
+.logo b{font-size:17px;line-height:1.2}
+.logo span{display:block;font-size:12px;color:var(--sub);font-weight:500}
+.navitem{display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:none;background:none;font-size:15px;font-weight:600;color:var(--text);text-align:left;width:100%}
+.navitem .ic{font-size:19px}
+.navitem.active{background:color-mix(in srgb,var(--accent) 12%,#fff);color:var(--accent)}
+/* ===== Layout Mobile ===== */
+.topbar{position:sticky;top:0;z-index:15;background:var(--bg);padding:6px 2px 10px;display:flex;align-items:center;justify-content:space-between}
+.topbar b{font-size:18px}
+.topbar .demo{font-size:11px;background:#FFF3D6;color:#8A6100;border:1px solid #F2D492;padding:3px 8px;border-radius:99px;font-weight:700}
+.bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--card);border-top:1px solid var(--border);display:flex;padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+.bottomnav button{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;font-weight:600;color:var(--sub);padding:6px 0}
+.bottomnav button .ic{font-size:21px}
+.bottomnav button.active{color:var(--accent)}
+/* ===== Components ===== */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:14px}
+.card h3{margin:0 0 10px;font-size:16px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px}
+.kpi .v{font-size:24px;font-weight:800;line-height:1.1}
+.kpi .l{font-size:12px;color:var(--sub);font-weight:600;margin-top:4px}
+.row{display:flex;gap:10px;align-items:center}
+.wrap{flex-wrap:wrap}
+.grow{flex:1}
+label.lbl{display:block;font-size:12px;font-weight:700;color:var(--sub);margin:10px 0 6px;text-transform:uppercase;letter-spacing:.02em}
+.inp{width:100%;height:48px;border:1.5px solid var(--border);border-radius:12px;padding:0 12px;background:#fff;outline:none}
+.inp:focus{border-color:var(--accent)}
+textarea.inp{height:auto;min-height:48px;padding:12px;resize:vertical}
+.btn{height:48px;border:none;border-radius:12px;padding:0 18px;font-size:15px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn-pri{background:var(--accent);color:#fff}
+.btn-ghost{background:#fff;border:1.5px solid var(--border);color:var(--text)}
+.btn-block{width:100%}
+.btn:disabled{opacity:.55}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border:1.5px solid var(--border);background:#fff;border-radius:99px;padding:9px 14px;font-weight:700;font-size:14px}
+.chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.seg{display:flex;background:#E9EBEE;border-radius:12px;padding:4px;gap:4px}
+.seg button{flex:1;border:none;background:none;height:40px;border-radius:9px;font-weight:700;font-size:14px;color:var(--sub)}
+.seg button.active{background:#fff;color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{padding:9px 8px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left;white-space:normal}
+th{font-size:11.5px;text-transform:uppercase;color:var(--sub);letter-spacing:.02em}
+.tblwrap{overflow-x:auto;margin:0 -16px;padding:0 16px}
+.badge{display:inline-block;font-size:11px;font-weight:700;padding:3px 8px;border-radius:99px}
+.b-ok{background:#E2F4EA;color:var(--ok)} .b-warn{background:#FDEEDA;color:var(--warn)}
+.b-mua{background:#E1EEFC;color:#175CD3} .b-le{background:#FDE8F0;color:#C2185B} .b-none{background:#EEF0F2;color:var(--sub)}
+.secttl{display:flex;justify-content:space-between;align-items:center;margin:16px 0 4px}
+.secttl b{font-size:15px}
+.secttl .sum{font-weight:800;color:var(--accent)}
+.frow{display:grid;grid-template-columns:1fr 92px 92px;gap:8px;align-items:center;margin-top:8px}
+.frow .nm{font-weight:600;font-size:14px}
+.frow .inp{height:46px;text-align:center;padding:0 6px}
+.frow2{display:grid;grid-template-columns:1fr 110px;gap:8px;align-items:center;margin-top:8px}
+.frow2 .nm{font-weight:600;font-size:14px}
+.frow2 .inp{height:46px;text-align:center}
+.auto{background:#F6F8FA;border:1.5px dashed var(--border);border-radius:12px;padding:10px 12px;font-size:13.5px}
+.auto b{font-size:15px}
+.hint{font-size:12.5px;color:var(--sub);line-height:1.5}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:92px;z-index:50;background:#111;color:#fff;padding:12px 18px;border-radius:12px;font-weight:600;font-size:14px;opacity:0;pointer-events:none;transition:.25s;max-width:92vw;text-align:center}
+.toast.show{opacity:1}
+@media(min-width:1024px){.toast{bottom:30px}}
+.screen{display:none}.screen.active{display:block}
+input[type="color"]{width:56px;height:48px;border:1.5px solid var(--border);border-radius:12px;background:#fff;padding:4px}
+pre.report{white-space:pre-wrap;word-break:break-word;background:#F6F8FA;border:1px solid var(--border);border-radius:12px;padding:14px;font-size:13.5px;line-height:1.55;font-family:inherit;margin:0}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="logo"><div class="mark">🌴</div><div><b id="appNameSide">Chấm công cạo mủ</b><span>Google Sheet + Apps Script</span></div></div>
+  <button class="navitem" data-nav="home"><span class="ic">🏠</span> Tổng quan</button>
+  <button class="navitem" data-nav="entry"><span class="ic">📝</span> Chấm công</button>
+  <button class="navitem" data-nav="daily"><span class="ic">💬</span> Báo cáo ngày</button>
+  <button class="navitem" data-nav="report"><span class="ic">📊</span> Thống kê</button>
+  <button class="navitem" data-nav="settings"><span class="ic">⚙️</span> Cài đặt</button>
+  <div style="margin-top:auto" class="hint" id="sideInfo"></div>
+</aside>
+
+<div class="main">
+  <div class="topbar"><b id="appNameTop">🌴 Chấm công cạo mủ</b><span class="demo" id="demoBadge" style="display:none">BẢN NHÁP — dữ liệu mẫu</span></div>
+
+  <!-- ===== TỔNG QUAN ===== -->
+  <section class="screen" id="scr-home">
+    <div class="card">
+      <div class="row wrap">
+        <div class="grow"><label class="lbl" style="margin-top:0">Ngày xem</label><input type="date" class="inp" id="homeDate"></div>
+        <div style="padding-top:26px"><button class="btn btn-ghost" id="btnHomeCopy">⧉ Sao chép hôm qua</button></div>
+      </div>
+      <p class="hint" style="margin:10px 0 0">Sao chép toàn bộ nhóm từ hôm qua sang ngày đang chọn (nhóm đã nhập sẽ không bị ghi đè) — yêu cầu 2.</p>
+    </div>
+    <div class="grid" id="homeKpis" style="margin-bottom:14px"></div>
+    <div class="card">
+      <h3>Tình hình theo nhóm</h3>
+      <div class="tblwrap"><table id="homeTable"><thead><tr>
+        <th>Nhóm</th><th>Đ.biên</th><th>Đi làm</th><th>Vắng</th><th>Có mặt</th><th>Thiếu</th><th>Công cạo</th><th>Tr.bị</th><th>Thuê</th><th>Trạng thái</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- ===== CHẤM CÔNG ===== -->
+  <section class="screen" id="scr-entry">
+    <div class="card">
+      <label class="lbl" style="margin-top:0">Ngày chấm công</label>
+      <input type="date" class="inp" id="entryDate">
+      <label class="lbl">Đội</label>
+      <div class="chips" id="doiChips"></div>
+      <label class="lbl">Nhóm</label>
+      <div class="chips" id="nhomChips"></div>
+      <label class="lbl">Loại ngày (yêu cầu 6)</label>
+      <div class="seg" id="loaiNgaySeg">
+        <button data-v="Thuong" class="active">☀️ Thường</button>
+        <button data-v="Mua">🌧 Mưa</button>
+        <button data-v="Le">🎉 Lễ / Tết</button>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <div class="grow"><label class="lbl" style="margin-top:0">Định biên (nhập tay từng ngày)</label><input type="number" inputmode="decimal" class="inp" id="f_DinhBien" placeholder="VD 50"></div>
+        <div class="grow"><label class="lbl" style="margin-top:0">Mã phần (VD A2)</label><input type="text" class="inp" id="f_MaPhan" placeholder="A2"></div>
+        <div class="grow"><label class="lbl" style="margin-top:0">Tổng phần phiên</label><input type="number" inputmode="decimal" class="inp" id="f_TongPhanPhien" placeholder="VD 38"></div>
+      </div>
+
+      <div class="secttl"><b>1. CẠO — Thường / Đúp / Choàng</b><span class="sum">Cộng mục 1: <span id="sumMuc1">0</span></span></div>
+      <div class="frow" style="margin-top:0"><span class="hint">Loại cạo</span><span class="hint" style="text-align:center">Phiên / Phần</span><span class="hint" style="text-align:center">Công</span></div>
+      <div class="frow"><span class="nm">1.1 Thường</span><input class="inp" id="f_PhienThuong" placeholder="A2"><input type="number" inputmode="decimal" class="inp" id="f_CongThuong" placeholder="0"></div>
+      <div class="frow"><span class="nm">1.2 Đúp</span><input class="inp" id="f_PhienDup" placeholder=""><input type="number" inputmode="decimal" class="inp" id="f_CongDup" placeholder="0"></div>
+      <div class="frow"><span class="nm">1.3 Choàng</span><input class="inp" id="f_PhienChoang" placeholder=""><input type="number" inputmode="decimal" class="inp" id="f_CongChoang" placeholder="0"></div>
+
+      <div class="secttl"><b>2. TRANG BỊ</b><span class="sum">Cộng mục 2: <span id="sumMuc2">0</span></span></div>
+      <div id="trangBiRows"></div>
+
+      <div class="secttl"><b>3. THUÊ — Cạo, bóc mủ</b><span class="sum">Cộng mục 3: <span id="sumMuc3">0</span></span></div>
+      <div class="frow2"><span class="nm">Cạo (thuê)</span><input type="number" inputmode="decimal" class="inp" id="f_ThueCao" placeholder="0"></div>
+      <div class="frow2"><span class="nm">Bóc mủ (thuê)</span><input type="number" inputmode="decimal" class="inp" id="f_ThueBocMu" placeholder="0"></div>
+
+      <div class="secttl"><b>4. LAO ĐỘNG TRONG NGÀY</b></div>
+      <div class="frow2"><span class="nm">Phần đứng lô (người)</span><input type="number" inputmode="decimal" class="inp" id="f_PhanDungLo" placeholder="Trống = công thường"></div>
+      <div class="frow2"><span class="nm">Số lao động vắng</span><input type="number" inputmode="decimal" class="inp" id="f_Vang" placeholder="0"></div>
+      <label class="lbl">Danh sách phần vắng (cách nhau dấu phẩy)</label>
+      <input type="text" class="inp" id="f_DanhSachVang" placeholder="VD 5, 12">
+      <label class="lbl">Lý do vắng</label>
+      <input type="text" class="inp" id="f_LyDoVang" placeholder="VD ốm">
+      <label class="lbl">Danh sách phần thiếu</label>
+      <input type="text" class="inp" id="f_DanhSachThieu" placeholder="VD 4, 10, 14, 16">
+      <label class="lbl">Cạo không hết cây</label>
+      <input type="text" class="inp" id="f_CaoKhongHet" placeholder="VD phần 9, 17 cạo 70%">
+      <label class="lbl">Ghi chú</label>
+      <input type="text" class="inp" id="f_GhiChu" placeholder="">
+
+      <label class="lbl">Tự động tính (không cần nhập)</label>
+      <div class="auto" id="autoBox">—</div>
+
+      <div class="row" style="margin-top:16px">
+        <button class="btn btn-ghost grow" id="btnCopyGroup">⧉ Chép hôm qua (nhóm này)</button>
+        <button class="btn btn-pri grow" id="btnSave">💾 Lưu chấm công</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== BÁO CÁO NGÀY ===== -->
+  <section class="screen" id="scr-daily">
+    <div class="card">
+      <h3>Báo cáo ngày — mẫu đội đang gửi Zalo</h3>
+      <label class="lbl" style="margin-top:0">Ngày</label>
+      <input type="date" class="inp" id="dailyDate">
+      <div style="height:12px"></div>
+      <pre class="report" id="dailyText">Đang tải…</pre>
+      <div style="height:12px"></div>
+      <button class="btn btn-pri btn-block" id="btnCopyText">📋 Sao chép để gửi Zalo</button>
+    </div>
+  </section>
+
+  <!-- ===== THỐNG KÊ ===== -->
+  <section class="screen" id="scr-report">
+    <div class="card">
+      <div class="row wrap">
+        <div class="grow"><label class="lbl" style="margin-top:0">Tháng</label><input type="month" class="inp" id="repMonth"></div>
+      </div>
+      <label class="lbl">Kỳ (yêu cầu 10 — bỏ thống kê 7 ngày)</label>
+      <div class="seg" id="periodSeg">
+        <button data-v="nua1">15 ngày đầu</button>
+        <button data-v="nua2">15 ngày cuối</button>
+        <button data-v="thang" class="active">Cả tháng</button>
+      </div>
+      <div id="repSummary" style="margin-top:14px"></div>
+    </div>
+    <div class="card">
+      <h3>Số công theo nhóm</h3>
+      <div class="tblwrap"><table id="repCongTable"><thead><tr>
+        <th>Nhóm</th><th>Phải cạo</th><th>Thường</th><th>Đúp</th><th>Choàng</th><th>Trang bị</th><th>Thuê</th><th>Không được</th><th>Tuyển</th><th>Nghỉ</th>
+      </tr></thead><tbody></tbody></table></div>
+      <p class="hint">Tổng công phải cạo = Σ định biên từng ngày trong kỳ (định biên không đổi thì = định biên × số ngày). Công không được = Phải cạo − (Thường + Đúp + Choàng) — yêu cầu 9.</p>
+    </div>
+    <div class="card">
+      <h3>Số ngày theo nhóm</h3>
+      <div class="tblwrap"><table id="repNgayTable"><thead><tr>
+        <th>Nhóm</th><th>Thường</th><th>Đúp</th><th>Choàng</th><th>Trang bị</th><th>Thuê</th><th>Mưa</th><th>Lễ</th>
+      </tr></thead><tbody></tbody></table></div>
+      <p class="hint">Số ngày = số ngày có phát sinh công ở hạng mục đó (ngày Mưa/Lễ tính theo loại ngày đã chọn) — yêu cầu 7, 8.</p>
+    </div>
+  </section>
+
+  <!-- ===== CÀI ĐẶT ===== -->
+  <section class="screen" id="scr-settings">
+    <div class="card">
+      <h3>Cài đặt chung</h3>
+      <label class="lbl" style="margin-top:0">Tên ứng dụng</label>
+      <input type="text" class="inp" id="c_TenUngDung">
+      <label class="lbl">Tên Đội 1</label>
+      <input type="text" class="inp" id="c_TenDoi1">
+      <label class="lbl">Tên Đội 2</label>
+      <input type="text" class="inp" id="c_TenDoi2">
+      <label class="lbl">Số nhóm mỗi đội</label>
+      <input type="number" class="inp" id="c_SoNhomMoiDoi">
+      <label class="lbl">Màu chủ đạo (lưu vào Sheet Cài đặt)</label>
+      <div class="row">
+        <input type="color" id="c_MauChuDao" value="#0866FF">
+        <div class="chips">
+          <button class="chip" data-color="#0866FF">Xanh dương</button>
+          <button class="chip" data-color="#FF6A00">Cam nóng</button>
+          <button class="chip" data-color="#1F9D55">Xanh lá</button>
+          <button class="chip" data-color="#D93025">Đỏ</button>
+        </div>
+      </div>
+      <div style="height:14px"></div>
+      <button class="btn btn-pri btn-block" id="btnSaveConfig">💾 Lưu cài đặt</button>
+    </div>
+    <div class="card">
+      <h3>Quản trị dữ liệu</h3>
+      <p class="hint">• <b>Phân quyền:</b> khai email + vai trò (Admin / NhapLieu / Xem) ở tab <b>PHAN_QUYEN</b> trong Sheet. Để trống = ai có link cũng nhập được.<br>
+      • <b>Lịch sử:</b> mọi lần lưu/sao chép đều ghi ở tab <b>LICH_SU</b>.<br>
+      • <b>Backup:</b> hệ thống tự copy Sheet lúc 2h sáng mỗi ngày (cài 1 lần bằng menu trong Apps Script: <i>🌴 App Chấm Công → Cài đặt hệ thống</i>).<br>
+      • <b>Import dữ liệu cũ:</b> chạy 1 lần trong Apps Script: <i>importDuLieuTuBangRong('2026-10')</i> để đưa dữ liệu tab CHẤM CÔNG CẠO vào app.</p>
+      <p class="hint" id="meInfo"></p>
+    </div>
+  </section>
+</div>
+
+<nav class="bottomnav">
+  <button data-nav="home"><span class="ic">🏠</span>Tổng quan</button>
+  <button data-nav="entry"><span class="ic">📝</span>Chấm công</button>
+  <button data-nav="daily"><span class="ic">💬</span>Báo cáo</button>
+  <button data-nav="report"><span class="ic">📊</span>Thống kê</button>
+  <button data-nav="settings"><span class="ic">⚙️</span>Cài đặt</button>
+</nav>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================== LỚP DỮ LIỆU ==================
+   Có google.script.run -> chạy thật trên Apps Script.
+   Mở file trực tiếp -> CHẾ ĐỘ NHÁP với dữ liệu mẫu lấy từ Sheet + ảnh mẫu Zalo. */
+const HAS_GAS = (typeof google !== 'undefined' && google.script && google.script.run);
+const TB_KEYS = ['TB_ThietKe','TB_KiengChen','TB_ChanMua','TB_CheChen','TB_VayCheChen','TB_CaoXa','TB_Khac'];
+const TB_NAMES = {TB_ThietKe:'Thiết kế',TB_KiengChen:'Kiềng, chén',TB_ChanMua:'Máng chắn mưa',TB_CheChen:'Che chén',TB_VayCheChen:'Váy che chén',TB_CaoXa:'Cạo xả',TB_Khac:'Khác'};
+let CFG = {TenUngDung:'Chấm công cạo mủ', TenDoi1:'Đội 1', TenDoi2:'Đội 2', SoNhomMoiDoi:7, MauChuDao:'#0866FF'};
+let DEMO = []; // kho dữ liệu khi chạy nháp
+
+function seedDemo(){
+  DEMO = [
+    // Theo Sheet gốc 01/10/2026 — Đội 1 Nhóm 1
+    {Ngay:'2026-10-01',Doi:1,Nhom:1,DinhBien:50,LoaiNgay:'Thuong',CongThuong:38,Vang:8,PhanDungLo:38},
+    {Ngay:'2026-10-02',Doi:1,Nhom:1,DinhBien:50,LoaiNgay:'Thuong',PhienThuong:'A2',CongThuong:38,Vang:8,PhanDungLo:38},
+    {Ngay:'2026-10-03',Doi:1,Nhom:1,DinhBien:50,LoaiNgay:'Thuong',PhienThuong:'C2',CongThuong:33,CongDup:37,Vang:6,PhanDungLo:33},
+    // Theo ảnh mẫu Zalo KHAI THÁC ĐỘI 2 — ngày 24/10/2026
+    {Ngay:'2026-10-24',Doi:2,Nhom:5,DinhBien:50,LoaiNgay:'Thuong',MaPhan:'A2',TongPhanPhien:38,CongThuong:27,PhanDungLo:27,Vang:0,LyDoVang:'ốm',DanhSachThieu:'4,10,14,16,23,24,25,26,36,37,38',CaoKhongHet:''},
+    {Ngay:'2026-10-24',Doi:2,Nhom:2,DinhBien:50,LoaiNgay:'Thuong',MaPhan:'A2',TongPhanPhien:38,CongThuong:37,PhanDungLo:37,Vang:0,DanhSachThieu:'14',CaoKhongHet:'phần 9,17 cạo 70%'},
+    {Ngay:'2026-10-23',Doi:2,Nhom:2,DinhBien:50,LoaiNgay:'Thuong',CongThuong:37,PhanDungLo:37,Vang:0},
+    {Ngay:'2026-10-23',Doi:2,Nhom:5,DinhBien:50,LoaiNgay:'Mua',CongThuong:0,PhanDungLo:0,Vang:0}
+  ];
+}
+const num = v => { if(v===null||v===undefined||v===''||v==='-') return 0; const n=Number(String(v).replace(',','.')); return isNaN(n)?0:n; };
+const countList = s => !s ? 0 : String(s).split(',').map(x=>x.trim()).filter(x=>x!=='').length;
+
+function derive(o, prev){
+  const d = Object.assign({}, o);
+  d.CongTrangBi = TB_KEYS.reduce((s,k)=>s+num(d[k]),0);
+  d.CongMuc1 = num(d.CongThuong)+num(d.CongDup)+num(d.CongChoang);
+  d.CongMuc3 = num(d.ThueCao)+num(d.ThueBocMu);
+  d.DiLam = num(d.PhanDungLo)>0 ? num(d.PhanDungLo) : num(d.CongThuong);
+  d.Vang = num(d.Vang);
+  d.CoMat = d.DiLam + d.Vang;
+  d.ThieuLD = num(d.DinhBien) - d.CoMat;
+  d.SoPhanThieu = countList(d.DanhSachThieu);
+  d.SoPhanVang = d.Vang>0 ? d.Vang : countList(d.DanhSachVang);
+  const pc = prev ? ((num(prev.PhanDungLo)>0?num(prev.PhanDungLo):num(prev.CongThuong)) + num(prev.Vang)) : null;
+  d.CoMatHomQua = pc;
+  d.TuyenMoi = pc===null?0:Math.max(d.CoMat-pc,0);
+  d.NghiViec = pc===null?0:Math.max(pc-d.CoMat,0);
+  d.ChenhDiLamVsCoMatHomQua = pc===null?null:pc-d.DiLam;
+  return d;
+}
+function prevOf(list, o){
+  let p=null; list.filter(x=>x.Doi===o.Doi&&x.Nhom===o.Nhom&&x.Ngay<o.Ngay).sort((a,b)=>a.Ngay<b.Ngay?-1:1).forEach(x=>p=x); return p;
+}
+function demoDay(dateISO){
+  const records=[];
+  for(let doi=1;doi<=2;doi++) for(let nhom=1;nhom<=CFG.SoNhomMoiDoi;nhom++){
+    const f = DEMO.find(o=>o.Ngay===dateISO&&o.Doi===doi&&o.Nhom===nhom);
+    const base = f || {Ngay:dateISO,Doi:doi,Nhom:nhom,LoaiNgay:'Thuong'};
+    records.push(derive(base, prevOf(DEMO, base)));
+  }
+  return {ok:true, date:dateISO, records};
+}
+function call(fn, arg){
+  return new Promise((resolve, reject)=>{
+    if(!HAS_GAS){ // ---- chế độ nháp ----
+      try{
+        if(fn==='getBootstrap') return resolve({ok:true, config:CFG, email:'(bản nháp)', role:'', today:'2026-10-24'});
+        if(fn==='getDay') return resolve(demoDay(arg));
+        if(fn==='saveRecord'){
+          const i = DEMO.findIndex(o=>o.Ngay===arg.Ngay&&o.Doi===num(arg.Doi)&&o.Nhom===num(arg.Nhom));
+          const rec = Object.assign({}, arg, {Doi:num(arg.Doi), Nhom:num(arg.Nhom)});
+          if(i>=0) DEMO[i]=rec; else DEMO.push(rec);
+          return resolve({ok:true, record:derive(rec, prevOf(DEMO, rec))});
+        }
+        if(fn==='copyYesterday'){
+          const d = new Date(arg+'T00:00:00'); d.setDate(d.getDate()-1);
+          const prevISO = d.toISOString().slice(0,10);
+          const src = DEMO.filter(o=>o.Ngay===prevISO);
+          if(!src.length) return reject(new Error('Hôm qua ('+prevISO+') chưa có dữ liệu để sao chép.'));
+          let c=0; src.forEach(o=>{ if(!DEMO.find(x=>x.Ngay===arg&&x.Doi===o.Doi&&x.Nhom===o.Nhom)){ DEMO.push(Object.assign({},o,{Ngay:arg})); c++; }});
+          return resolve({ok:true, count:c, from:prevISO});
+        }
+        if(fn==='saveConfig'){ CFG = Object.assign({}, CFG, arg); return resolve({ok:true, config:CFG}); }
+        if(fn==='getReport') return resolve(demoReport(arg));
+        resolve({ok:true});
+      }catch(e){ reject(e); }
+      return;
+    }
+    const runner = google.script.run.withSuccessHandler(resolve).withFailureHandler(e=>reject(new Error(e.message||e)));
+    if(arg===undefined) runner[fn](); else runner[fn](arg);
+  });
+}
+function demoReport(month){
+  const all = DEMO.filter(o=>o.Ngay.slice(0,7)===month);
+  const groups=[];
+  const mk=()=>({nua1:emptyS(),nua2:emptyS(),thang:emptyS()});
+  const doiP={1:mk(),2:mk()}, comp=mk();
+  function emptyS(){ return {ngay:{thuong:0,dup:0,choang:0,trangBi:0,thue:0,mua:0,le:0},cong:{thuong:0,dup:0,choang:0,trangBi:0,thue:0,mua:0,le:0},phaiCao:0,soNgayDaNhap:0,tuyenMoi:0,nghiViec:0,vang:0,khongDuoc:0}; }
+  function add(P,d){
+    const per = Number(d.Ngay.slice(8,10))<=15?'nua1':'nua2';
+    [P[per],P.thang].forEach(s=>{
+      s.soNgayDaNhap++; s.phaiCao+=num(d.DinhBien);
+      if(d.LoaiNgay==='Mua'){s.ngay.mua++; s.cong.mua+=d.CongMuc1+d.CongTrangBi+d.CongMuc3;}
+      else if(d.LoaiNgay==='Le'){s.ngay.le++; s.cong.le+=d.CongMuc1+d.CongTrangBi+d.CongMuc3;}
+      else{ if(num(d.CongThuong)>0)s.ngay.thuong++; if(num(d.CongDup)>0)s.ngay.dup++; if(num(d.CongChoang)>0)s.ngay.choang++; if(d.CongTrangBi>0)s.ngay.trangBi++; if(d.CongMuc3>0)s.ngay.thue++; }
+      s.cong.thuong+=num(d.CongThuong); s.cong.dup+=num(d.CongDup); s.cong.choang+=num(d.CongChoang); s.cong.trangBi+=d.CongTrangBi; s.cong.thue+=d.CongMuc3;
+      s.tuyenMoi+=d.TuyenMoi; s.nghiViec+=d.NghiViec; s.vang+=d.Vang;
+    });
+  }
+  function fin(P){ ['nua1','nua2','thang'].forEach(k=>{ P[k].khongDuoc = P[k].phaiCao-(P[k].cong.thuong+P[k].cong.dup+P[k].cong.choang); }); return P; }
+  for(let doi=1;doi<=2;doi++) for(let nhom=1;nhom<=CFG.SoNhomMoiDoi;nhom++){
+    const p=mk();
+    all.filter(o=>o.Doi===doi&&o.Nhom===nhom).forEach(o=>{ const d=derive(o,prevOf(DEMO,o)); add(p,d); add(doiP[doi],d); add(comp,d); });
+    groups.push({doi,nhom,periods:fin(p)});
+  }
+  return {ok:true, month, groups, doi:{1:fin(doiP[1]),2:fin(doiP[2])}, company:fin(comp), config:CFG};
+}
+
+/* ================== GIAO DIỆN ================== */
+const $ = id => document.getElementById(id);
+const fmt = n => (n===null||n===undefined||n==='') ? '–' : Number(n).toLocaleString('vi-VN');
+const fmtDateVN = iso => { const p=String(iso).split('-'); return p.length===3 ? p[2]+'/'+p[1]+'/'+p[0] : iso; };
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2600); }
+function tenDoi(doi){ return doi===1?CFG.TenDoi1:CFG.TenDoi2; }
+
+let curScreen='home', curDoi=1, curNhom=1, curPeriod='thang';
+function go(scr){
+  curScreen=scr;
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  $('scr-'+scr).classList.add('active');
+  document.querySelectorAll('[data-nav]').forEach(b=>b.classList.toggle('active', b.dataset.nav===scr));
+  window.scrollTo(0,0);
+  if(scr==='home') loadHome();
+  if(scr==='entry') loadEntry();
+  if(scr==='daily') loadDaily();
+  if(scr==='report') loadReport();
+}
+document.querySelectorAll('[data-nav]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.nav)));
+
+/* ---- Tổng quan ---- */
+async function loadHome(){
+  const date = $('homeDate').value; if(!date) return;
+  try{
+    const res = await call('getDay', date);
+    const rs = res.records;
+    const sum = k => rs.reduce((s,r)=>s+num(r[k]),0);
+    const daNhap = rs.filter(r=>num(r.DinhBien)>0||r.CongMuc1>0).length;
+    const tuyen = rs.reduce((s,r)=>s+r.TuyenMoi,0), nghi = rs.reduce((s,r)=>s+r.NghiViec,0);
+    $('homeKpis').innerHTML = [
+      ['Định biên', fmt(sum('DinhBien'))],['Có mặt', fmt(rs.reduce((s,r)=>s+r.CoMat,0))],
+      ['Đi làm', fmt(rs.reduce((s,r)=>s+r.DiLam,0))],['Vắng', fmt(sum('Vang'))],
+      ['Công cạo (mục 1)', fmt(rs.reduce((s,r)=>s+r.CongMuc1,0))],['Trang bị (mục 2)', fmt(rs.reduce((s,r)=>s+r.CongTrangBi,0))],
+      ['Thuê (mục 3)', fmt(rs.reduce((s,r)=>s+r.CongMuc3,0))],['Tuyển mới / Nghỉ', fmt(tuyen)+' / '+fmt(nghi)],
+      ['Nhóm đã nhập', daNhap+' / '+rs.length]
+    ].map(x=>'<div class="kpi"><div class="v">'+x[1]+'</div><div class="l">'+x[0]+'</div></div>').join('');
+    $('homeTable').querySelector('tbody').innerHTML = rs.map(r=>{
+      const has = num(r.DinhBien)>0||r.CongMuc1>0||r.CongTrangBi>0||r.CongMuc3>0;
+      const st = r.LoaiNgay==='Mua' ? '<span class="badge b-mua">🌧 Mưa</span>' : r.LoaiNgay==='Le' ? '<span class="badge b-le">🎉 Lễ</span>'
+        : has ? '<span class="badge b-ok">Đã nhập</span>' : '<span class="badge b-none">Chưa nhập</span>';
+      return '<tr><td><b>'+tenDoi(r.Doi)+' – Nhóm '+r.Nhom+'</b></td><td>'+fmt(r.DinhBien)+'</td><td>'+fmt(r.DiLam)+'</td><td>'+fmt(r.Vang)+'</td><td>'+fmt(r.CoMat)+'</td><td>'+fmt(r.ThieuLD)+'</td><td>'+fmt(r.CongMuc1)+'</td><td>'+fmt(r.CongTrangBi)+'</td><td>'+fmt(r.CongMuc3)+'</td><td>'+st+'</td></tr>';
+    }).join('');
+  }catch(e){ toast('Lỗi: '+e.message); }
+}
+$('homeDate').addEventListener('change', loadHome);
+$('btnHomeCopy').addEventListener('click', async ()=>{
+  const date=$('homeDate').value; if(!date) return;
+  try{ const r=await call('copyYesterday', date); toast('Đã sao chép '+r.count+' nhóm từ '+fmtDateVN(r.from)); loadHome(); }
+  catch(e){ toast(e.message); }
+});
+
+/* ---- Chấm công ---- */
+function buildChips(){
+  $('doiChips').innerHTML = [1,2].map(d=>'<button class="chip'+(d===curDoi?' active':'')+'" data-doi="'+d+'">'+tenDoi(d)+'</button>').join('');
+  $('nhomChips').innerHTML = Array.from({length:CFG.SoNhomMoiDoi},(_,i)=>i+1).map(n=>'<button class="chip'+(n===curNhom?' active':'')+'" data-nhom="'+n+'">Nhóm '+n+'</button>').join('');
+  $('doiChips').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{curDoi=num(b.dataset.doi); buildChips(); loadEntryForm();}));
+  $('nhomChips').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{curNhom=num(b.dataset.nhom); buildChips(); loadEntryForm();}));
+  $('trangBiRows').innerHTML = TB_KEYS.map(k=>'<div class="frow2"><span class="nm">'+TB_NAMES[k]+'</span><input type="number" inputmode="decimal" class="inp tb-inp" id="f_'+k+'" placeholder="0"></div>').join('');
+  document.querySelectorAll('#scr-entry input').forEach(i=>i.addEventListener('input', refreshAuto));
+}
+let entryRecords=[];
+async function loadEntry(){
+  buildChips();
+  const date=$('entryDate').value; if(!date) return;
+  const res = await call('getDay', date);
+  entryRecords = res.records;
+  loadEntryForm();
+}
+function curRec(){ return entryRecords.find(r=>r.Doi===curDoi&&r.Nhom===curNhom) || {LoaiNgay:'Thuong'}; }
+const FIELDS = ['DinhBien','MaPhan','TongPhanPhien','PhienThuong','CongThuong','PhienDup','CongDup','PhienChoang','CongChoang','ThueCao','ThueBocMu','PhanDungLo','Vang','DanhSachVang','LyDoVang','DanhSachThieu','CaoKhongHet','GhiChu'].concat(TB_KEYS);
+function loadEntryForm(){
+  const r = curRec();
+  FIELDS.forEach(f=>{ const el=$('f_'+f); if(el) el.value = (r[f]===undefined||r[f]===null)?'':r[f]; });
+  document.querySelectorAll('#loaiNgaySeg button').forEach(b=>b.classList.toggle('active', b.dataset.v===(r.LoaiNgay||'Thuong')));
+  refreshAuto();
+}
+function readForm(){
+  const o = {Ngay:$('entryDate').value, Doi:curDoi, Nhom:curNhom, LoaiNgay:(document.querySelector('#loaiNgaySeg button.active')||{}).dataset?.v || 'Thuong'};
+  FIELDS.forEach(f=>{ const el=$('f_'+f); if(el) o[f]=el.value; });
+  return o;
+}
+function refreshAuto(){
+  const o = readForm();
+  const prev = entryRecords.find(r=>r.Doi===curDoi&&r.Nhom===curNhom);
+  const d = derive(o, prev && prev.CoMatHomQua!==null && prev.CoMatHomQua!==undefined ? {PhanDungLo:0,CongThuong:0,Vang:0,_cm:prev.CoMatHomQua} : null);
+  // derive() tính CoMatHomQua từ bản ghi prev thô; ở đây dùng thẳng số server đã tính:
+  const cmq = prev ? prev.CoMatHomQua : null;
+  const tuyen = cmq===null||cmq===undefined ? 0 : Math.max(d.CoMat-cmq,0);
+  const nghi  = cmq===null||cmq===undefined ? 0 : Math.max(cmq-d.CoMat,0);
+  $('sumMuc1').textContent = fmt(d.CongMuc1);
+  $('sumMuc2').textContent = fmt(d.CongTrangBi);
+  $('sumMuc3').textContent = fmt(d.CongMuc3);
+  $('autoBox').innerHTML =
+    'Đi làm: <b>'+fmt(d.DiLam)+'</b> · Vắng: <b>'+fmt(d.Vang)+'</b> · Có mặt: <b>'+fmt(d.CoMat)+'</b> · Thiếu (so định biên): <b>'+fmt(d.ThieuLD)+'</b><br>' +
+    'Phần thiếu: <b>'+fmt(d.SoPhanThieu)+'</b> phần · Tuyển mới: <b>'+fmt(tuyen)+'</b> · Nghỉ việc: <b>'+fmt(nghi)+'</b>' +
+    (cmq===null||cmq===undefined ? '<br><span class="hint">Chưa có ngày trước để tính tuyển mới / nghỉ việc.</span>'
+      : '<br><span class="hint">Có mặt hôm qua: '+fmt(cmq)+' · Chênh đi làm so với có mặt hôm qua (tham khảo YC4): '+fmt(cmq-d.DiLam)+'</span>');
+}
+document.querySelectorAll('#loaiNgaySeg button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#loaiNgaySeg button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); refreshAuto();
+}));
+$('entryDate').addEventListener('change', loadEntry);
+$('btnSave').addEventListener('click', async ()=>{
+  const o = readForm(); if(!o.Ngay) return toast('Chưa chọn ngày.');
+  $('btnSave').disabled=true;
+  try{ const r = await call('saveRecord', o); toast('✅ Đã lưu '+tenDoi(o.Doi)+' – Nhóm '+o.Nhom+' ngày '+fmtDateVN(o.Ngay));
+    const res = await call('getDay', o.Ngay); entryRecords=res.records; loadEntryForm();
+  }catch(e){ toast('Lỗi: '+e.message); }
+  $('btnSave').disabled=false;
+});
+$('btnCopyGroup').addEventListener('click', async ()=>{
+  const date=$('entryDate').value; if(!date) return;
+  const d=new Date(date+'T00:00:00'); d.setDate(d.getDate()-1);
+  const prevISO=d.toISOString().slice(0,10);
+  try{
+    const res = await call('getDay', prevISO);
+    const p = res.records.find(r=>r.Doi===curDoi&&r.Nhom===curNhom);
+    if(!p || (!num(p.DinhBien)&&!p.CongMuc1)) return toast('Hôm qua nhóm này chưa có dữ liệu.');
+    FIELDS.forEach(f=>{ const el=$('f_'+f); if(el) el.value=(p[f]===undefined||p[f]===null)?'':p[f]; });
+    document.querySelectorAll('#loaiNgaySeg button').forEach(b=>b.classList.toggle('active', b.dataset.v===(p.LoaiNgay||'Thuong')));
+    refreshAuto(); toast('Đã chép số liệu '+fmtDateVN(prevISO)+' — kiểm tra lại rồi bấm Lưu.');
+  }catch(e){ toast('Lỗi: '+e.message); }
+});
+
+/* ---- Báo cáo ngày (mẫu Zalo) ---- */
+function buildDailyText(date, records){
+  const blocks=[];
+  records.forEach(r=>{
+    const has = num(r.CongThuong)||num(r.DinhBien)||r.MaPhan; if(!has) return;
+    const L=[];
+    L.push('Ngày: '+fmtDateVN(date)+' — '+tenDoi(r.Doi));
+    if(r.LoaiNgay==='Mua') L.push('🌧 NGÀY MƯA'); if(r.LoaiNgay==='Le') L.push('🎉 NGÀY LỄ');
+    L.push('1. Nhóm '+r.Nhom+': Tổng Công cạo '+fmt(r.CongMuc1)+' Phần');
+    if(r.MaPhan) L.push('   '+r.MaPhan+' : '+fmt(r.CongThuong)+'/'+(num(r.TongPhanPhien)||''));
+    L.push('2. Phần đứng lô: '+fmt(r.DiLam)+' Công nhân');
+    L.push('   + Công cạo: '+fmt(r.CongThuong)+' phần');
+    L.push('3. Phần vắng: '+fmt(r.SoPhanVang)+' phần : ('+(r.DanhSachVang||'')+')');
+    L.push('   Lý do: '+(r.LyDoVang||''));
+    L.push('4. Thiếu: '+fmt(r.SoPhanThieu)+' phần : ('+(r.DanhSachThieu||'')+')');
+    L.push('5. Công nhân có mặt: '+fmt(r.CoMat)+' Công nhân');
+    L.push('6. Cạo không hết cây: '+(r.CaoKhongHet||''));
+    if(r.CongTrangBi>0||r.CongMuc3>0) L.push('   Trang bị: '+fmt(r.CongTrangBi)+' công | Thuê: '+fmt(r.CongMuc3)+' công');
+    if(r.TuyenMoi>0||r.NghiViec>0) L.push('   Tuyển mới: '+fmt(r.TuyenMoi)+' | Nghỉ việc: '+fmt(r.NghiViec));
+    blocks.push(L.join('\n'));
+  });
+  return blocks.join('\n\n') || 'Chưa có dữ liệu ngày này.';
+}
+async function loadDaily(){
+  const date=$('dailyDate').value; if(!date) return;
+  const res = await call('getDay', date);
+  $('dailyText').textContent = buildDailyText(date, res.records);
+}
+$('dailyDate').addEventListener('change', loadDaily);
+$('btnCopyText').addEventListener('click', async ()=>{
+  try{ await navigator.clipboard.writeText($('dailyText').textContent); toast('📋 Đã sao chép — dán vào Zalo là gửi.'); }
+  catch(e){ toast('Không sao chép tự động được, hãy bôi đen và copy thủ công.'); }
+});
+
+/* ---- Thống kê ---- */
+document.querySelectorAll('#periodSeg button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#periodSeg button').forEach(x=>x.classList.remove('active')); b.classList.add('active');
+  curPeriod=b.dataset.v; loadReport();
+}));
+$('repMonth').addEventListener('change', loadReport);
+async function loadReport(){
+  const m=$('repMonth').value; if(!m) return;
+  try{
+    const res = await call('getReport', m);
+    const C = res.company[curPeriod];
+    $('repSummary').innerHTML = '<div class="grid">' +
+      [['Tổng công phải cạo', C.phaiCao],['Công thường', C.cong.thuong],['Công đúp', C.cong.dup],['Công choàng', C.cong.choang],
+       ['Công không được', C.khongDuoc],['Công trang bị', C.cong.trangBi],['Công thuê', C.cong.thue],['Ngày mưa / lễ', C.ngay.mua+' / '+C.ngay.le]]
+      .map(x=>'<div class="kpi"><div class="v">'+fmt(x[1])+'</div><div class="l">'+x[0]+' — toàn công ty</div></div>').join('') + '</div>';
+    const rowG = res.groups.map(g=>{
+      const s=g.periods[curPeriod];
+      return {g, s};
+    });
+    $('repCongTable').querySelector('tbody').innerHTML = rowG.map(({g,s})=>
+      '<tr><td><b>'+tenDoi(g.doi)+' – Nhóm '+g.nhom+'</b></td><td>'+fmt(s.phaiCao)+'</td><td>'+fmt(s.cong.thuong)+'</td><td>'+fmt(s.cong.dup)+'</td><td>'+fmt(s.cong.choang)+'</td><td>'+fmt(s.cong.trangBi)+'</td><td>'+fmt(s.cong.thue)+'</td><td>'+fmt(s.khongDuoc)+'</td><td>'+fmt(s.tuyenMoi)+'</td><td>'+fmt(s.nghiViec)+'</td></tr>').join('') +
+      [1,2].map(d=>{ const s=res.doi[d][curPeriod]; return '<tr style="font-weight:700;background:#F6F8FA"><td>Tổng '+tenDoi(d)+'</td><td>'+fmt(s.phaiCao)+'</td><td>'+fmt(s.cong.thuong)+'</td><td>'+fmt(s.cong.dup)+'</td><td>'+fmt(s.cong.choang)+'</td><td>'+fmt(s.cong.trangBi)+'</td><td>'+fmt(s.cong.thue)+'</td><td>'+fmt(s.khongDuoc)+'</td><td>'+fmt(s.tuyenMoi)+'</td><td>'+fmt(s.nghiViec)+'</td></tr>'; }).join('');
+    $('repNgayTable').querySelector('tbody').innerHTML = rowG.map(({g,s})=>
+      '<tr><td><b>'+tenDoi(g.doi)+' – Nhóm '+g.nhom+'</b></td><td>'+fmt(s.ngay.thuong)+'</td><td>'+fmt(s.ngay.dup)+'</td><td>'+fmt(s.ngay.choang)+'</td><td>'+fmt(s.ngay.trangBi)+'</td><td>'+fmt(s.ngay.thue)+'</td><td>'+fmt(s.ngay.mua)+'</td><td>'+fmt(s.ngay.le)+'</td></tr>').join('');
+  }catch(e){ toast('Lỗi: '+e.message); }
+}
+
+/* ---- Cài đặt ---- */
+function applyConfig(){
+  document.documentElement.style.setProperty('--accent', CFG.MauChuDao || '#0866FF');
+  $('appNameTop').textContent = '🌴 ' + CFG.TenUngDung;
+  $('appNameSide').textContent = CFG.TenUngDung;
+  $('c_TenUngDung').value=CFG.TenUngDung; $('c_TenDoi1').value=CFG.TenDoi1; $('c_TenDoi2').value=CFG.TenDoi2;
+  $('c_SoNhomMoiDoi').value=CFG.SoNhomMoiDoi; $('c_MauChuDao').value=CFG.MauChuDao||'#0866FF';
+  try{ localStorage.setItem('hh_cfg', JSON.stringify(CFG)); }catch(e){}
+}
+$('c_MauChuDao').addEventListener('input', e=>{ CFG.MauChuDao=e.target.value; applyConfig(); });
+document.querySelectorAll('[data-color]').forEach(b=>b.addEventListener('click',()=>{ CFG.MauChuDao=b.dataset.color; applyConfig(); }));
+$('btnSaveConfig').addEventListener('click', async ()=>{
+  CFG.TenUngDung=$('c_TenUngDung').value||CFG.TenUngDung;
+  CFG.TenDoi1=$('c_TenDoi1').value||'Đội 1'; CFG.TenDoi2=$('c_TenDoi2').value||'Đội 2';
+  CFG.SoNhomMoiDoi=num($('c_SoNhomMoiDoi').value)||7;
+  try{ await call('saveConfig', {TenUngDung:CFG.TenUngDung,TenDoi1:CFG.TenDoi1,TenDoi2:CFG.TenDoi2,SoNhomMoiDoi:String(CFG.SoNhomMoiDoi),MauChuDao:CFG.MauChuDao});
+    applyConfig(); buildChips(); toast('✅ Đã lưu cài đặt.'); }
+  catch(e){ toast('Lỗi: '+e.message); }
+});
+
+/* ---- Khởi động ---- */
+(async function init(){
+  if(!HAS_GAS){ seedDemo(); $('demoBadge').style.display='inline-block'; }
+  try{ const saved=localStorage.getItem('hh_cfg'); if(saved) CFG=Object.assign(CFG, JSON.parse(saved)); }catch(e){}
+  try{
+    const boot = await call('getBootstrap');
+    if(boot && boot.config) CFG = Object.assign(CFG, boot.config);
+    const today = boot && boot.today ? boot.today : '2026-10-24';
+    $('homeDate').value=today; $('entryDate').value=today; $('dailyDate').value=today;
+    $('repMonth').value=today.slice(0,7);
+    $('meInfo').textContent = 'Tài khoản đang dùng: '+(boot.email||'—')+(boot.role?' · Vai trò: '+boot.role:' · Chưa bật kiểm quyền (tab PHAN_QUYEN đang trống)');
+    $('sideInfo').textContent = boot.email ? ('Đăng nhập: '+boot.email) : '';
+  }catch(e){
+    const today='2026-10-24';
+    $('homeDate').value=today; $('entryDate').value=today; $('dailyDate').value=today; $('repMonth').value='2026-10';
+  }
+  applyConfig();
+  go('home');
+})();
+</script>
+</body>
+</html>
