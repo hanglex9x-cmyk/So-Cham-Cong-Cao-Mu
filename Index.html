@@ -558,7 +558,7 @@ async function loadReport(){
     $('repSummary').innerHTML = '<div class="grid">' +
       [['Tổng công phải cạo', C.phaiCao],['Công thường', C.cong.thuong],['Công đúp', C.cong.dup],['Công choàng', C.cong.choang],
        ['Công không được', C.khongDuoc],['Công trang bị', C.cong.trangBi],['Công thuê', C.cong.thue],['Ngày mưa / lễ', C.ngay.mua+' / '+C.ngay.le]]
-      .map(x=>'<div class="kpi"><div class="v">'+fmt(x[1])+'</div><div class="l">'+x[0]+' — toàn công ty</div></div>').join('') + '</div>';
+      .map(x=>'<div class="kpi"><div class="v">'+(typeof x[1]==='string'&&x[1].indexOf('/')>=0?x[1]:fmt(x[1]))+'</div><div class="l">'+x[0]+' — toàn công ty</div></div>').join('') + '</div>';
     const rowG = res.groups.map(g=>{
       const s=g.periods[curPeriod];
       return {g, s};
