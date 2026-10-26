@@ -19,14 +19,82 @@ const HEADERS = [
   'TB_ThietKe','TB_KiengChen','TB_ChanMua','TB_CheChen','TB_VayCheChen','TB_CaoXa','TB_Khac',
   'ThueCao','ThueBocMu',
   'PhanDungLo','Vang','DanhSachVang','LyDoVang','DanhSachThieu','CaoKhongHet','GhiChu',
-  'CapNhatLuc','NguoiCapNhat'
+  'CapNhatLuc','NguoiCapNhat',
+  // Cột thêm về sau — LUÔN thêm ở CUỐI để không xáo trộn vị trí cột cũ trong Sheet
+  'TB_MaiCheMua','TuyenMoiNhap','NghiViecNhap'
 ];
 
-const TRANG_BI_KEYS = ['TB_ThietKe','TB_KiengChen','TB_ChanMua','TB_CheChen','TB_VayCheChen','TB_CaoXa','TB_Khac'];
+const TRANG_BI_KEYS = ['TB_ThietKe','TB_KiengChen','TB_ChanMua','TB_MaiCheMua','TB_CheChen','TB_VayCheChen','TB_CaoXa','TB_Khac'];
+
+/* ===== Chấm công từng công nhân (theo mẫu 2 tab ChamCongThuong/ChamCongDup của khách) =====
+ * DANH_SACH_CN: danh sách công nhân theo đội/nhóm. CHAM_CONG_CN: 1 dòng = 1 công nhân × 1 ngày.
+ * Ký hiệu (chú thích trên bảng của khách): X = đi làm, P = nghỉ phép, O = ốm đau,
+ * L = lễ/tết, B = mưa bão, NV = nghỉ việc.
+ * Tự đếm vào phiếu + báo cáo: Vắng = số CN chấm P/O/L/B trong ngày; Nghỉ việc = số CN chấm NV. */
+const TAB_ROSTER = 'DANH_SACH_CN';
+const TAB_MARK = 'CHAM_CONG_CN';
+const ROSTER_HEADERS = ['MaCN','Doi','Nhom','STT','PhanCao','HoTen','TenKhmer','DangLam'];
+const MARK_HEADERS = ['Ngay','Doi','Nhom','MaCN','KyHieu','CapNhatLuc','NguoiCapNhat','GhiChu'];
+const MARKS = ['X','V','P','O','NV','L','B'];
+
+/* ================== TÀI KHOẢN / PHÂN QUYỀN ==================
+ * Tab PHAN_QUYEN — mỗi dòng 1 tài khoản đăng nhập TRONG APP (không phải email Google,
+ * vì app deploy "Execute as Me" nên mọi người dùng chung 1 danh tính Google).
+ * Cột: TaiKhoan | MatKhau | TenHienThi | Doi (0 = cả 2 đội, 1/2 = chỉ đội đó)
+ *      | Xem | Them | Sua | Xoa | QuanTri (1 = có quyền, 0 = không)
+ * Admin quản lý ngay trong app: Cài đặt → Phân quyền (bảng tích checkbox).
+ */
+const ACC_HEADERS = ['TaiKhoan','MatKhau','TenHienThi','Doi','Xem','Them','Sua','Xoa','QuanTri'];
+const DEFAULT_ACCOUNTS = [
+  { u:'admin', p:'1234@', name:'Quản trị viên', doi:0, xem:1, them:1, sua:1, xoa:1, qt:1 },
+  { u:'doi1',  p:'1234@', name:'Đội 1',         doi:1, xem:1, them:1, sua:0, xoa:0, qt:0 },
+  { u:'doi2',  p:'1234@', name:'Đội 2',         doi:2, xem:1, them:1, sua:0, xoa:0, qt:0 }
+];
+
+function getAccounts_() {
+  const sh = ss_().getSheetByName(TAB_ROLE);
+  if (!sh || sh.getLastRow() < 2) return [];
+  const head = sh.getRange(1, 1, 1, sh.getMaxColumns()).getValues()[0].map(x => String(x || '').trim());
+  const ci = n => head.indexOf(n);
+  if (ci('TaiKhoan') < 0) return []; // tab còn định dạng cũ (Email/VaiTro) = chưa bật tài khoản
+  const rows = sh.getRange(2, 1, sh.getLastRow() - 1, sh.getMaxColumns()).getValues();
+  const f = v => (v === 1 || v === '1' || v === true || String(v).trim().toLowerCase() === 'x') ? 1 : 0;
+  return rows.filter(r => String(r[ci('TaiKhoan')] || '').trim() !== '').map(r => ({
+    u: String(r[ci('TaiKhoan')]).trim(),
+    p: String(r[ci('MatKhau')] === null || r[ci('MatKhau')] === undefined ? '' : r[ci('MatKhau')]).trim(),
+    name: String(r[ci('TenHienThi')] || '').trim(),
+    doi: num_(r[ci('Doi')]),
+    xem: f(r[ci('Xem')]), them: f(r[ci('Them')]), sua: f(r[ci('Sua')]), xoa: f(r[ci('Xoa')]), qt: f(r[ci('QuanTri')])
+  }));
+}
+
+/* Xác thực 1 request {data, auth:{u,p}} -> phiên làm việc.
+ * Chưa có tài khoản nào trong PHAN_QUYEN => chế độ MỞ (toàn quyền, như bản cũ). */
+function auth_(req) {
+  const accs = getAccounts_();
+  if (!accs.length) return { u:'(che-do-mo)', name:'Quản trị (chế độ mở)', doi:0, xem:1, them:1, sua:1, xoa:1, qt:1, open:true };
+  const a = (req && req.auth) || {};
+  const me = accs.find(x => x.u.toLowerCase() === String(a.u || '').trim().toLowerCase() && x.p === String(a.p || ''));
+  if (!me) throw new Error('NEED_LOGIN');
+  return { u: me.u, name: me.name || me.u, doi: me.doi, xem: me.xem, them: me.them, sua: me.sua, xoa: me.xoa, qt: me.qt, open:false };
+}
+
+function publicSession_(s) {
+  return { u: s.u, name: s.name, doi: s.doi, xem: s.xem, them: s.them, sua: s.sua, xoa: s.xoa, qt: s.qt, open: !!s.open };
+}
+
+function requirePerm_(s, key, label) {
+  if (!s[key]) throw new Error('Tài khoản "' + s.u + '" không có quyền ' + label + '. Liên hệ Admin để được cấp quyền trong Cài đặt → Phân quyền.');
+}
 
 /* ================== KHỞI TẠO / MENU ================== */
-function doGet() {
-  return HtmlService.createHtmlOutputFromFile('Index')
+function doGet(e) {
+  const view = (e && e.parameter && e.parameter.view) || '';
+  const file = view === 'mobile' ? 'Mobile' : 'Index';
+  const tpl = HtmlService.createTemplateFromFile(file);
+  tpl.baseUrl = ScriptApp.getService().getUrl();
+  tpl.curView = view === 'mobile' ? 'mobile' : 'pc';
+  return tpl.evaluate()
     .setTitle('Chấm công cạo mủ')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
@@ -36,6 +104,7 @@ function onOpen() {
   SpreadsheetApp.getUi().createMenu('🌴 App Chấm Công')
     .addItem('1. Cài đặt hệ thống (tạo tab + trigger backup)', 'setupHeThong')
     .addItem('2. Import dữ liệu T10/2026 từ tab CHẤM CÔNG CẠO', 'importDuLieuTuBangRong')
+    .addItem('3. Nhập danh sách + chấm CN T9/2026 từ tab ChamCongThuong (Nhóm 1 Đội 1)', 'importDanhSachVaChamTuTabKhach')
     .addToUi();
 }
 
@@ -47,18 +116,34 @@ function getOrCreateSheet_(name, headers) {
   if (!sh) {
     sh = ss.insertSheet(name);
     if (headers && headers.length) {
+      if (sh.getMaxColumns() < headers.length) sh.insertColumnsAfter(sh.getMaxColumns(), headers.length - sh.getMaxColumns());
       sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
       sh.setFrozenRows(1);
     }
+  } else if (headers && headers.length) {
+    // Bổ sung cột/tiêu đề mới thêm ở cuối (vd khi nâng cấp thêm hạng mục), không đụng dữ liệu cũ
+    if (sh.getMaxColumns() < headers.length) sh.insertColumnsAfter(sh.getMaxColumns(), headers.length - sh.getMaxColumns());
+    const row1 = sh.getRange(1, 1, 1, headers.length).getValues()[0];
+    headers.forEach((h, i) => { if (!row1[i]) sh.getRange(1, i + 1).setValue(h).setFontWeight('bold'); });
   }
   return sh;
 }
 
 function setupHeThong() {
   getOrCreateSheet_(TAB_DATA, HEADERS);
+  getOrCreateSheet_(TAB_ROSTER, ROSTER_HEADERS);
+  getOrCreateSheet_(TAB_MARK, MARK_HEADERS);
   getOrCreateSheet_(TAB_LOG, ['ThoiGian','HanhDong','DoiTuong','NguoiThucHien','ChiTiet']);
-  const role = getOrCreateSheet_(TAB_ROLE, ['Email','VaiTro']);
-  if (role.getLastRow() < 2) role.getRange(2, 1, 1, 2).setValues([['', 'Admin (để trống dòng này = chưa bật kiểm quyền)']]);
+  const role = getOrCreateSheet_(TAB_ROLE, ACC_HEADERS);
+  // Tab PHAN_QUYEN còn định dạng cũ (Email/VaiTro) hoặc chưa có tài khoản -> ghi lại theo định dạng mới + 3 tài khoản mặc định
+  const head0 = String(role.getRange(1, 1).getValue() || '');
+  if (head0 !== 'TaiKhoan' || !getAccounts_().length) {
+    role.clear();
+    role.getRange(1, 1, 1, ACC_HEADERS.length).setValues([ACC_HEADERS]).setFontWeight('bold');
+    role.setFrozenRows(1);
+    role.getRange(2, 1, DEFAULT_ACCOUNTS.length, ACC_HEADERS.length).setValues(
+      DEFAULT_ACCOUNTS.map(a => [a.u, a.p, a.name, a.doi, a.xem, a.them, a.sua, a.xoa, a.qt]));
+  }
   const conf = getOrCreateSheet_(TAB_CONF, ['Khoa','GiaTri']);
   if (conf.getLastRow() < 2) {
     conf.getRange(2, 1, 5, 2).setValues([
@@ -87,7 +172,7 @@ function autoBackup() {
 /* ================== CẤU HÌNH / QUYỀN ================== */
 function getConfig_() {
   const sh = ss_().getSheetByName(TAB_CONF);
-  const cfg = { TenUngDung: 'Sổ Chấm Công Cạo Mủ', TenDoi1: 'Đội 1', TenDoi2: 'Đội 2', SoNhomMoiDoi: 7, MauChuDao: '#1B7A43' };
+  const cfg = { TenUngDung: 'Sổ Chấm Công Cạo Mủ', TenDoi1: 'Đội 1', TenDoi2: 'Đội 2', SoNhomMoiDoi: 7, MauChuDao: '#1B7A43', ChiNhap: '0' };
   if (sh && sh.getLastRow() > 1) {
     sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues().forEach(r => {
       if (r[0]) cfg[String(r[0])] = r[1];
@@ -97,8 +182,10 @@ function getConfig_() {
   return cfg;
 }
 
-function saveConfig(payload) {
-  checkWrite_('Admin');
+function saveConfig(req) {
+  const s = auth_(req);
+  requirePerm_(s, 'qt', 'Quản trị (lưu cài đặt)');
+  const payload = (req && req.data) || {};
   const sh = getOrCreateSheet_(TAB_CONF, ['Khoa', 'GiaTri']);
   const rows = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues() : [];
   Object.keys(payload || {}).forEach(k => {
@@ -106,36 +193,50 @@ function saveConfig(payload) {
     if (idx >= 0) { sh.getRange(idx + 2, 2).setValue(payload[k]); rows[idx][1] = payload[k]; }
     else { sh.appendRow([k, payload[k]]); rows.push([k, payload[k]]); }
   });
-  ghiLog_('CAU_HINH', 'CaiDat', JSON.stringify(payload));
+  ghiLog_('CAU_HINH', 'CaiDat', JSON.stringify(payload), s.u);
   return { ok: true, config: getConfig_() };
+}
+
+/* Admin đọc danh sách tài khoản cho bảng Phân quyền (kèm mật khẩu — chỉ tài khoản Quản trị mới gọi được) */
+function getAccounts(req) {
+  const s = auth_(req);
+  requirePerm_(s, 'qt', 'Quản trị (xem phân quyền)');
+  return { ok: true, accounts: getAccounts_() };
+}
+
+/* Admin lưu toàn bộ bảng Phân quyền từ giao diện Cài đặt */
+function saveAccounts(req) {
+  const s = auth_(req);
+  requirePerm_(s, 'qt', 'Quản trị (lưu phân quyền)');
+  const list = (req && req.data) || [];
+  if (!Array.isArray(list) || !list.length) throw new Error('Danh sách tài khoản trống — phải giữ ít nhất 1 tài khoản Quản trị.');
+  const clean = list.filter(a => a && String(a.u || '').trim() !== '').map(a => ({
+    u: String(a.u).trim(),
+    p: String(a.p === null || a.p === undefined ? '' : a.p).trim(),
+    name: String(a.name || '').trim(),
+    doi: [0, 1, 2].includes(num_(a.doi)) ? num_(a.doi) : 0,
+    xem: a.xem ? 1 : 0, them: a.them ? 1 : 0, sua: a.sua ? 1 : 0, xoa: a.xoa ? 1 : 0, qt: a.qt ? 1 : 0
+  }));
+  if (!clean.length) throw new Error('Danh sách tài khoản không hợp lệ.');
+  if (!clean.some(a => a.qt)) throw new Error('Phải có ít nhất 1 tài khoản có quyền Quản trị, nếu không sẽ không ai vào sửa được nữa.');
+  const sh = getOrCreateSheet_(TAB_ROLE, ACC_HEADERS);
+  sh.clear();
+  sh.getRange(1, 1, 1, ACC_HEADERS.length).setValues([ACC_HEADERS]).setFontWeight('bold');
+  sh.setFrozenRows(1);
+  sh.getRange(2, 1, clean.length, ACC_HEADERS.length).setValues(
+    clean.map(a => [a.u, a.p, a.name, a.doi, a.xem, a.them, a.sua, a.xoa, a.qt]));
+  ghiLog_('PHAN_QUYEN', 'TaiKhoan', 'Cập nhật ' + clean.length + ' tài khoản: ' + clean.map(a => a.u).join(', '), s.u);
+  return { ok: true, accounts: clean };
 }
 
 function currentEmail_() {
   try { return Session.getActiveUser().getEmail() || ''; } catch (e) { return ''; }
 }
 
-// Trả về vai trò: Admin | NhapLieu | Xem | '' (chưa bật kiểm quyền = được ghi)
-function myRole_() {
-  const sh = ss_().getSheetByName(TAB_ROLE);
-  if (!sh || sh.getLastRow() < 2) return '';
-  const email = currentEmail_();
-  const rows = sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues()
-    .filter(r => String(r[0]).trim() !== '');
-  if (!rows.length) return '';
-  const me = rows.find(r => String(r[0]).trim().toLowerCase() === email.toLowerCase());
-  return me ? String(me[1]).trim() : 'KhongCoQuyen';
-}
-
-function checkWrite_(need) {
-  const role = myRole_();
-  if (role === 'KhongCoQuyen' || role === 'Xem') throw new Error('Tài khoản của bạn không có quyền ghi dữ liệu. Liên hệ Admin để được cấp quyền ở tab PHAN_QUYEN.');
-  if (need === 'Admin' && role && role !== 'Admin') throw new Error('Chức năng này chỉ dành cho Admin.');
-}
-
-function ghiLog_(hanhDong, doiTuong, chiTiet) {
+function ghiLog_(hanhDong, doiTuong, chiTiet, user) {
   try {
     const sh = getOrCreateSheet_(TAB_LOG, ['ThoiGian','HanhDong','DoiTuong','NguoiThucHien','ChiTiet']);
-    sh.appendRow([Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm:ss'), hanhDong, doiTuong, currentEmail_(), chiTiet || '']);
+    sh.appendRow([Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm:ss'), hanhDong, doiTuong, user || currentEmail_(), chiTiet || '']);
   } catch (e) {}
 }
 
@@ -149,7 +250,8 @@ function num_(v) {
 function readAll_() {
   const sh = ss_().getSheetByName(TAB_DATA);
   if (!sh || sh.getLastRow() < 2) return [];
-  const vals = sh.getRange(2, 1, sh.getLastRow() - 1, HEADERS.length).getValues();
+  const width = Math.min(HEADERS.length, sh.getMaxColumns());
+  const vals = sh.getRange(2, 1, sh.getLastRow() - 1, width).getValues();
   return vals.map(r => {
     const o = {};
     HEADERS.forEach((h, i) => { o[h] = (r[i] instanceof Date) ? Utilities.formatDate(r[i], TZ, 'yyyy-MM-dd HH:mm:ss') : r[i]; });
@@ -165,22 +267,33 @@ function countList_(s) {
   return String(s).split(',').map(x => x.trim()).filter(x => x !== '').length;
 }
 
-// Bổ sung các số tự tính cho 1 bản ghi (cần map bản ghi theo nhóm để lấy hôm trước)
-function derive_(o, prev) {
+// Bổ sung các số tự tính cho 1 bản ghi (cần map bản ghi theo nhóm để lấy hôm trước).
+// mk = tổng hợp chấm công từng công nhân của đúng ngày/đội/nhóm đó (nếu có chấm):
+// khi có chấm CN thì Vắng và Nghỉ việc ĐẾM TỪ BẢNG CHẤM CN (khách chốt 26/10), không suy từ phiếu nữa.
+function derive_(o, prev, mk) {
   const d = Object.assign({}, o);
   d.CongTrangBi = TRANG_BI_KEYS.reduce((s, k) => s + num_(d[k]), 0);
   d.CongMuc1 = num_(d.CongThuong) + num_(d.CongDup) + num_(d.CongChoang);
   d.CongMuc3 = num_(d.ThueCao) + num_(d.ThueBocMu);
-  d.DiLam = num_(d.PhanDungLo) > 0 ? num_(d.PhanDungLo) : num_(d.CongThuong);
-  d.Vang = num_(d.Vang);
+  // Từ bản 26/10: bỏ ô "Phần đứng lô" riêng — Công thường CHÍNH LÀ số công nhân đứng lô
+  d.DiLam = num_(d.CongThuong);
+  d.Vang = mk ? mk.vang : num_(d.Vang);
+  d.ChamCN = mk ? { x: mk.x, vang: mk.vang, nghi: mk.nghi } : null;
   d.CoMat = d.DiLam + d.Vang;
   d.ThieuLD = num_(d.DinhBien) - d.CoMat;
   d.SoPhanThieu = countList_(d.DanhSachThieu);
   d.SoPhanVang = d.Vang > 0 ? d.Vang : countList_(d.DanhSachVang);
-  const prevCoMat = prev ? ( (num_(prev.PhanDungLo) > 0 ? num_(prev.PhanDungLo) : num_(prev.CongThuong)) + num_(prev.Vang) ) : null;
+  const prevCoMat = prev ? ( num_(prev.CongThuong) + num_(prev.Vang) ) : null;
   d.CoMatHomQua = prevCoMat;
-  d.TuyenMoi = prevCoMat === null ? 0 : Math.max(d.CoMat - prevCoMat, 0);
-  d.NghiViec = prevCoMat === null ? 0 : Math.max(prevCoMat - d.CoMat, 0);
+  // Tuyển mới / Nghỉ việc: ưu tiên số NHẬP TAY theo báo cáo chấm công của đội (khách chốt 26/10);
+  // để trống thì tự tính theo chênh Có mặt so với phiếu trước như cũ
+  const autoTuyen = prevCoMat === null ? 0 : Math.max(d.CoMat - prevCoMat, 0);
+  const autoNghi = prevCoMat === null ? 0 : Math.max(prevCoMat - d.CoMat, 0);
+  d.AutoTuyenMoi = autoTuyen;
+  d.AutoNghiViec = autoNghi;
+  d.TuyenMoi = (d.TuyenMoiNhap === '' || d.TuyenMoiNhap === null || d.TuyenMoiNhap === undefined) ? autoTuyen : num_(d.TuyenMoiNhap);
+  // Có chấm công từng CN trong ngày -> Nghỉ việc = số CN chấm NV hôm đó (ghi đè cả nhập tay lẫn tự tính chênh)
+  d.NghiViec = mk ? mk.nghi : ((d.NghiViecNhap === '' || d.NghiViecNhap === null || d.NghiViecNhap === undefined) ? autoNghi : num_(d.NghiViecNhap));
   // Chỉ số tham khảo theo cách diễn đạt ở yêu cầu 4 (để đối chiếu, không dùng tính Có mặt)
   d.ChenhDiLamVsCoMatHomQua = prevCoMat === null ? null : prevCoMat - d.DiLam;
   return d;
@@ -203,35 +316,77 @@ function findPrev_(map, o) {
   return prev;
 }
 
-/* ================== API CHO GIAO DIỆN ================== */
-function getBootstrap() {
-  return { ok: true, config: getConfig_(), email: currentEmail_(), role: myRole_(),
-           today: Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd') };
+/* Tổng hợp chấm công từng CN theo khóa Ngay|Doi|Nhom: x = số X, vang = số V/P/O/L/B, nghi = số NV */
+function marksMap_() {
+  const sh = ss_().getSheetByName(TAB_MARK);
+  const map = {};
+  if (!sh || sh.getLastRow() < 2) return map;
+  const vals = sh.getRange(2, 1, sh.getLastRow() - 1, MARK_HEADERS.length).getValues();
+  vals.forEach(r => {
+    const ngay = (r[0] instanceof Date) ? Utilities.formatDate(r[0], TZ, 'yyyy-MM-dd') : String(r[0] || '').slice(0, 10);
+    if (!ngay) return;
+    const k = ngay + '|' + num_(r[1]) + '|' + num_(r[2]);
+    const m = map[k] || (map[k] = { x: 0, vang: 0, nghi: 0 });
+    const kh = String(r[4] || '').trim().toUpperCase();
+    if (kh === 'X') m.x++;
+    else if (kh === 'NV') m.nghi++;
+    else if (kh === 'V' || kh === 'P' || kh === 'O' || kh === 'L' || kh === 'B') m.vang++;
+  });
+  return map;
 }
 
-function getDay(dateISO) {
+function mkOf_(map, o) { return map[o.Ngay + '|' + o.Doi + '|' + o.Nhom] || null; }
+
+/* ================== API CHO GIAO DIỆN ==================
+ * Mọi hàm đều nhận req = { data, auth:{u,p} } và trả dữ liệu đã LỌC theo quyền:
+ * tài khoản gắn Đội (doi 1/2) chỉ thấy đúng đội của mình ở mọi API đọc. */
+function getBootstrap(req) {
+  const accs = getAccounts_();
+  const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+  if (accs.length && !(req && req.auth && req.auth.u)) {
+    // Chưa đăng nhập: chỉ trả danh sách tài khoản (tên) để hiện màn hình đăng nhập
+    return { ok: true, needLogin: true, accounts: accs.map(a => ({ u: a.u, name: a.name || a.u, doi: a.doi })),
+             config: getConfig_(), today };
+  }
+  const s = auth_(req); // sai mật khẩu -> NEED_LOGIN
+  return { ok: true, needLogin: false, config: getConfig_(), session: publicSession_(s), today };
+}
+
+function getDay(req) {
+  const s = auth_(req);
+  requirePerm_(s, 'xem', 'Xem');
+  return { ok: true, date: req.data, records: getDayRecords_(req.data, s.doi) };
+}
+
+function getDayRecords_(dateISO, scopeDoi) {
   checkDay_(dateISO);
   const all = readAll_();
   const map = prevMap_(all);
+  const mkMap = marksMap_();
   const cfg = getConfig_();
+  const dois = scopeDoi ? [scopeDoi] : [1, 2];
   const records = [];
-  for (let doi = 1; doi <= 2; doi++) {
+  dois.forEach(doi => {
     for (let nhom = 1; nhom <= cfg.SoNhomMoiDoi; nhom++) {
       const found = all.find(o => o.Ngay === dateISO && o.Doi === doi && o.Nhom === nhom);
       const base = found || { Ngay: dateISO, Doi: doi, Nhom: nhom, LoaiNgay: 'Thuong' };
-      records.push(derive_(base, findPrev_(map, base)));
+      records.push(derive_(base, findPrev_(map, base), mkOf_(mkMap, base)));
     }
-  }
-  return { ok: true, date: dateISO, records };
+  });
+  return records;
 }
 
 /* Toàn bộ bản ghi đã tính của 1 tháng — phục vụ dải chọn ngày, thẻ nhóm và chi tiết theo ngày */
-function getMonthDays(month) { // month = 'yyyy-MM'
+function getMonthDays(req) { // data = 'yyyy-MM'
+  const s = auth_(req);
+  requirePerm_(s, 'xem', 'Xem');
+  const month = req.data;
   if (!/^\d{4}-\d{2}$/.test(String(month || ''))) throw new Error('Tháng không hợp lệ: ' + month);
   const all = readAll_();
   const map = prevMap_(all);
-  const records = all.filter(o => o.Ngay.slice(0, 7) === month)
-    .map(o => derive_(o, findPrev_(map, o)));
+  const mkMap = marksMap_();
+  const records = all.filter(o => o.Ngay.slice(0, 7) === month && (!s.doi || o.Doi === s.doi))
+    .map(o => derive_(o, findPrev_(map, o), mkOf_(mkMap, o)));
   return { ok: true, month, records };
 }
 
@@ -239,58 +394,118 @@ function checkDay_(dateISO) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateISO || ''))) throw new Error('Ngày không hợp lệ: ' + dateISO);
 }
 
-function saveRecord(rec) {
-  checkWrite_();
+function saveRecord(req) {
+  const s = auth_(req);
+  const rec = (req && req.data) || {};
   checkDay_(rec.Ngay);
+  if (s.doi && num_(rec.Doi) !== s.doi) throw new Error('Tài khoản "' + s.u + '" chỉ được nhập dữ liệu của Đội ' + s.doi + '.');
   const sh = getOrCreateSheet_(TAB_DATA, HEADERS);
   const all = readAll_();
+  const idx = all.findIndex(o => o.Ngay === rec.Ngay && o.Doi === num_(rec.Doi) && o.Nhom === num_(rec.Nhom));
+  const existed = idx >= 0 && (num_(all[idx].DinhBien) > 0 || num_(all[idx].CongThuong) > 0 || num_(all[idx].CongDup) > 0 || num_(all[idx].CongChoang) > 0);
+  // Phiếu trống (dòng tạo sẵn) coi như chưa nhập; phiếu ĐÃ CÓ số liệu thì cần quyền Sửa
+  if (idx >= 0 && existed) requirePerm_(s, 'sua', 'Sửa phiếu đã nhập');
+  else requirePerm_(s, 'them', 'Thêm phiếu mới');
   const rowVals = HEADERS.map(h => {
     if (h === 'CapNhatLuc') return Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm:ss');
-    if (h === 'NguoiCapNhat') return currentEmail_();
+    if (h === 'NguoiCapNhat') return s.u;
     const v = rec[h];
     return v === undefined || v === null ? '' : v;
   });
-  const idx = all.findIndex(o => o.Ngay === rec.Ngay && o.Doi === num_(rec.Doi) && o.Nhom === num_(rec.Nhom));
   if (idx >= 0) sh.getRange(idx + 2, 1, 1, HEADERS.length).setValues([rowVals]);
   else sh.appendRow(rowVals);
-  ghiLog_(idx >= 0 ? 'SUA' : 'THEM', 'Đội ' + rec.Doi + ' – Nhóm ' + rec.Nhom, 'Ngày ' + rec.Ngay);
+  ghiLog_(idx >= 0 ? 'SUA' : 'THEM', 'Đội ' + rec.Doi + ' – Nhóm ' + rec.Nhom, 'Ngày ' + rec.Ngay, s.u);
   // trả lại bản ghi đã tính
   const all2 = readAll_();
   const map = prevMap_(all2);
+  const mkMap = marksMap_();
   const saved = all2.find(o => o.Ngay === rec.Ngay && o.Doi === num_(rec.Doi) && o.Nhom === num_(rec.Nhom));
-  return { ok: true, record: derive_(saved, findPrev_(map, saved)) };
+  return { ok: true, record: derive_(saved, findPrev_(map, saved), mkOf_(mkMap, saved)) };
 }
 
-function copyYesterday(dateISO) {
-  checkWrite_();
+/* Xóa hẳn 1 phiếu (chỉ tài khoản có quyền Xóa — mặc định chỉ Admin) */
+function deleteRecord(req) {
+  const s = auth_(req);
+  requirePerm_(s, 'xoa', 'Xóa phiếu');
+  const rec = (req && req.data) || {};
+  checkDay_(rec.Ngay);
+  if (s.doi && num_(rec.Doi) !== s.doi) throw new Error('Tài khoản "' + s.u + '" chỉ được thao tác dữ liệu của Đội ' + s.doi + '.');
+  const sh = getOrCreateSheet_(TAB_DATA, HEADERS);
+  const all = readAll_();
+  const idx = all.findIndex(o => o.Ngay === rec.Ngay && o.Doi === num_(rec.Doi) && o.Nhom === num_(rec.Nhom));
+  if (idx < 0) throw new Error('Không thấy phiếu này trong dữ liệu.');
+  sh.deleteRow(idx + 2);
+  ghiLog_('XOA', 'Đội ' + rec.Doi + ' – Nhóm ' + rec.Nhom, 'Ngày ' + rec.Ngay, s.u);
+  return { ok: true };
+}
+
+function copyYesterday(req) {
+  const s = auth_(req);
+  requirePerm_(s, 'them', 'Thêm (chép hôm qua)');
+  const dateISO = req.data;
   checkDay_(dateISO);
   const d = new Date(dateISO + 'T00:00:00');
   d.setDate(d.getDate() - 1);
   const prevISO = Utilities.formatDate(d, TZ, 'yyyy-MM-dd');
   const all = readAll_();
-  const src = all.filter(o => o.Ngay === prevISO);
+  const src = all.filter(o => o.Ngay === prevISO && (!s.doi || o.Doi === s.doi));
   if (!src.length) throw new Error('Ngày hôm qua (' + prevISO + ') chưa có dữ liệu để sao chép.');
   let count = 0;
   src.forEach(o => {
     const existed = all.find(x => x.Ngay === dateISO && x.Doi === o.Doi && x.Nhom === o.Nhom);
     if (existed) return; // không ghi đè ngày đã nhập
     const copy = Object.assign({}, o, { Ngay: dateISO });
-    saveRecordSilent_(copy);
+    saveRecordSilent_(copy, s.u);
     count++;
   });
-  ghiLog_('SAO_CHEP', 'Ngay ' + dateISO, 'Sao chép ' + count + ' nhóm từ ' + prevISO);
+  ghiLog_('SAO_CHEP', 'Ngay ' + dateISO, 'Sao chép ' + count + ' nhóm từ ' + prevISO, s.u);
   return { ok: true, count, from: prevISO };
 }
 
-function saveRecordSilent_(rec) {
+function saveRecordSilent_(rec, user) {
   const sh = getOrCreateSheet_(TAB_DATA, HEADERS);
   const rowVals = HEADERS.map(h => {
     if (h === 'CapNhatLuc') return Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm:ss');
-    if (h === 'NguoiCapNhat') return currentEmail_();
+    if (h === 'NguoiCapNhat') return user || currentEmail_();
     const v = rec[h];
     return v === undefined || v === null ? '' : v;
   });
   sh.appendRow(rowVals);
+}
+
+/* ---- Nhập dữ liệu từ file Excel do giao diện gửi lên (khách yêu cầu 26/10) ----
+ * Mỗi dòng trong list là 1 phiếu (Ngay yyyy-MM-dd, Doi, Nhom + các cột theo HEADERS).
+ * Khóa trùng: Ngay + Doi + Nhom -> đã có thì cập nhật, chưa có thì thêm mới. */
+function importRecords(req) {
+  const s = auth_(req);
+  requirePerm_(s, 'qt', 'Quản trị (nhập Excel)');
+  const list = (req && req.data) || [];
+  if (!Array.isArray(list) || !list.length) throw new Error('File Excel không có dòng dữ liệu nào.');
+  const sh = getOrCreateSheet_(TAB_DATA, HEADERS);
+  const all = readAll_();
+  const idxMap = {};
+  all.forEach((o, i) => { idxMap[o.Ngay + '|' + o.Doi + '|' + o.Nhom] = i; });
+  const nowStr = Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm:ss');
+  const me = s.u;
+  let added = 0, updated = 0, skipped = 0;
+  const appends = [];
+  const appendIdx = {};
+  list.forEach(rec => {
+    if (!rec || !/^\d{4}-\d{2}-\d{2}$/.test(String(rec.Ngay || '')) || !num_(rec.Doi) || !num_(rec.Nhom)) { skipped++; return; }
+    const key = String(rec.Ngay) + '|' + num_(rec.Doi) + '|' + num_(rec.Nhom);
+    const rowVals = HEADERS.map(h => {
+      if (h === 'CapNhatLuc') return nowStr;
+      if (h === 'NguoiCapNhat') return me;
+      const v = rec[h];
+      return v === undefined || v === null ? '' : v;
+    });
+    if (key in appendIdx) { appends[appendIdx[key]] = rowVals; return; }
+    if (key in idxMap) { sh.getRange(idxMap[key] + 2, 1, 1, HEADERS.length).setValues([rowVals]); updated++; }
+    else { appendIdx[key] = appends.length; appends.push(rowVals); added++; }
+  });
+  if (appends.length) sh.getRange(sh.getLastRow() + 1, 1, appends.length, HEADERS.length).setValues(appends);
+  ghiLog_('IMPORT_EXCEL', TAB_DATA, 'Nhập Excel: thêm ' + added + ', cập nhật ' + updated + ', bỏ qua ' + skipped, s.u);
+  return { ok: true, added, updated, skipped };
 }
 
 /* ---- Báo cáo kỳ: 1–15 / 16–cuối / cả tháng (yêu cầu 7, 8, 9, 10) ---- */
@@ -341,25 +556,30 @@ function finishStat_(st) {
   return st;
 }
 
-function getReport(month) { // month = 'yyyy-MM'
+function getReport(req) { // data = 'yyyy-MM'
+  const s = auth_(req);
+  requirePerm_(s, 'xem', 'Xem');
+  const month = req.data;
   if (!/^\d{4}-\d{2}$/.test(String(month || ''))) throw new Error('Tháng không hợp lệ: ' + month);
   const cfg = getConfig_();
-  const all = readAll_().filter(o => o.Ngay.slice(0, 7) === month);
+  const dois = s.doi ? [s.doi] : [1, 2];
+  const all = readAll_().filter(o => o.Ngay.slice(0, 7) === month && dois.includes(o.Doi));
   const map = prevMap_(readAll_());
+  const mkMap = marksMap_();
   const groups = [];
   function newPeriods() { return { nua1: emptyStat_(), nua2: emptyStat_(), thang: emptyStat_() }; }
   const doiP = { 1: newPeriods(), 2: newPeriods() };
   const compP = newPeriods();
-  for (let doi = 1; doi <= 2; doi++) {
+  dois.forEach(doi => {
     for (let nhom = 1; nhom <= cfg.SoNhomMoiDoi; nhom++) {
       const p = newPeriods();
       all.filter(o => o.Doi === doi && o.Nhom === nhom).forEach(o => {
-        const d = derive_(o, findPrev_(map, o));
+        const d = derive_(o, findPrev_(map, o), mkOf_(mkMap, o));
         addToStat_(p, d); addToStat_(doiP[doi], d); addToStat_(compP, d);
       });
       groups.push({ doi, nhom, periods: finishStat_(p) });
     }
-  }
+  });
   return { ok: true, month, groups,
            doi: { 1: finishStat_(doiP[1]), 2: finishStat_(doiP[2]) },
            company: finishStat_(compP), config: cfg };
@@ -371,12 +591,15 @@ function fmtDateVN_(iso) {
   return p[2] + '/' + p[1] + '/' + p[0];
 }
 
-function getDailyReportText(dateISO) {
+function getDailyReportText(req) {
+  const s = auth_(req);
+  requirePerm_(s, 'xem', 'Xem');
+  const dateISO = req.data;
   checkDay_(dateISO);
   const cfg = getConfig_();
-  const day = getDay(dateISO);
+  const records = getDayRecords_(dateISO, s.doi);
   const blocks = [];
-  day.records.forEach(r => {
+  records.forEach(r => {
     const has = num_(r.CongThuong) || num_(r.DinhBien) || r.MaPhan;
     if (!has) return;
     const tenDoi = r.Doi === 1 ? cfg.TenDoi1 : cfg.TenDoi2;
@@ -408,7 +631,7 @@ function getDailyReportText(dateISO) {
  * LƯU Ý: chọn đúng tháng/năm của tab trước khi chạy (mặc định 2026-10 như file gốc).
  */
 function importDuLieuTuBangRong(month) {
-  checkWrite_('Admin');
+  // Chạy tay từ editor/menu bởi chủ Sheet — không qua đăng nhập app
   month = month || '2026-10';
   const sh = ss_().getSheetByName(TAB_WIDE);
   if (!sh) throw new Error('Không thấy tab ' + TAB_WIDE);
@@ -452,4 +675,215 @@ function importDuLieuTuBangRong(month) {
   }
   ghiLog_('IMPORT', TAB_WIDE, 'Tháng ' + month + ': thêm ' + added + ', bỏ qua ' + skipped);
   return { ok: true, added, skipped, month };
+}
+
+/* ================== CHẤM CÔNG TỪNG CÔNG NHÂN ==================
+ * Màn "Chấm CN": 2 kiểu xem — THEO NGÀY (chọn ngày → từng công nhân chọn Đi làm X /
+ * Vắng V / Nghỉ P / Nghỉ hẳn NV + ô ghi chú nghỉ) và THEO THÁNG (lưới CN × ngày, bấm ô
+ * để vòng ký hiệu X/V/P/O/NV/L/B). Ghi chú lưu ở cột GhiChu của tab CHAM_CONG_CN.
+ * Vắng + Nghỉ việc của phiếu/báo cáo tự đếm từ đây qua marksMap_() + derive_(). */
+function roster_() {
+  const sh = ss_().getSheetByName(TAB_ROSTER);
+  if (!sh || sh.getLastRow() < 2) return [];
+  const vals = sh.getRange(2, 1, sh.getLastRow() - 1, ROSTER_HEADERS.length).getValues();
+  return vals.map(r => ({
+    MaCN: String(r[0] || '').trim(), Doi: num_(r[1]), Nhom: num_(r[2]), STT: num_(r[3]),
+    PhanCao: String(r[4] || ''), HoTen: String(r[5] || ''), TenKhmer: String(r[6] || ''),
+    DangLam: (r[7] === 1 || r[7] === '1' || r[7] === true) ? 1 : 0
+  })).filter(w => w.MaCN);
+}
+
+function scopeCheck_(s, doi) {
+  if (s.doi && num_(doi) !== s.doi) throw new Error('Tài khoản "' + s.u + '" chỉ được thao tác dữ liệu của Đội ' + s.doi + '.');
+}
+
+function getWorkers(req) { // data = {doi, nhom}
+  const s = auth_(req);
+  requirePerm_(s, 'xem', 'Xem');
+  const d = (req && req.data) || {};
+  scopeCheck_(s, d.doi);
+  const workers = roster_().filter(w => w.Doi === num_(d.doi) && w.Nhom === num_(d.nhom))
+    .sort((a, b) => (b.DangLam - a.DangLam) || (a.STT - b.STT));
+  return { ok: true, workers };
+}
+
+function saveWorker(req) { // thêm CN mới (quyền Thêm) hoặc sửa thông tin CN có sẵn (quyền Sửa)
+  const s = auth_(req);
+  const w = (req && req.data) || {};
+  scopeCheck_(s, w.Doi);
+  const sh = getOrCreateSheet_(TAB_ROSTER, ROSTER_HEADERS);
+  const all = roster_();
+  if (w.MaCN) {
+    requirePerm_(s, 'sua', 'Sửa danh sách công nhân');
+    const idx = all.findIndex(x => x.MaCN === w.MaCN);
+    if (idx < 0) throw new Error('Không thấy công nhân ' + w.MaCN);
+    sh.getRange(idx + 2, 1, 1, ROSTER_HEADERS.length).setValues([[
+      w.MaCN, num_(w.Doi), num_(w.Nhom), num_(w.STT) || all[idx].STT,
+      String(w.PhanCao || ''), String(w.HoTen || ''), String(w.TenKhmer || ''), all[idx].DangLam
+    ]]);
+    ghiLog_('SUA_CN', w.MaCN, 'Sửa thông tin công nhân', s.u);
+    return { ok: true, worker: roster_().find(x => x.MaCN === w.MaCN) };
+  }
+  requirePerm_(s, 'them', 'Thêm công nhân');
+  if (!String(w.HoTen || '').trim()) throw new Error('Chưa nhập họ tên công nhân.');
+  const sameGroup = all.filter(x => x.Doi === num_(w.Doi) && x.Nhom === num_(w.Nhom));
+  const seq = sameGroup.reduce((m, x) => Math.max(m, num_(String(x.MaCN).split('-')[2]) || 0, x.STT || 0), 0) + 1;
+  const ma = num_(w.Doi) + '-' + num_(w.Nhom) + '-' + String(seq).padStart(3, '0');
+  const stt = num_(w.STT) || seq;
+  sh.appendRow([ma, num_(w.Doi), num_(w.Nhom), stt, String(w.PhanCao || ''), String(w.HoTen || '').trim(), String(w.TenKhmer || ''), 1]);
+  ghiLog_('THEM_CN', ma, 'Thêm công nhân ' + w.HoTen + ' (Đội ' + w.Doi + ' – Nhóm ' + w.Nhom + ')', s.u);
+  return { ok: true, worker: { MaCN: ma, Doi: num_(w.Doi), Nhom: num_(w.Nhom), STT: stt, PhanCao: String(w.PhanCao || ''), HoTen: String(w.HoTen || '').trim(), TenKhmer: String(w.TenKhmer || ''), DangLam: 1 } };
+}
+
+function setWorkerActive(req) { // data = {MaCN, active:1/0} — cho nghỉ hẳn / đi làm lại
+  const s = auth_(req);
+  requirePerm_(s, 'sua', 'Sửa danh sách công nhân');
+  const d = (req && req.data) || {};
+  const all = roster_();
+  const idx = all.findIndex(x => x.MaCN === d.MaCN);
+  if (idx < 0) throw new Error('Không thấy công nhân ' + d.MaCN);
+  scopeCheck_(s, all[idx].Doi);
+  const sh = getOrCreateSheet_(TAB_ROSTER, ROSTER_HEADERS);
+  sh.getRange(idx + 2, 8).setValue(d.active ? 1 : 0);
+  ghiLog_('CN_DANGLAM', d.MaCN, d.active ? 'Cho đi làm lại' : 'Cho nghỉ hẳn (ẩn khỏi bảng chấm)', s.u);
+  return { ok: true };
+}
+
+function getWorkerMonth(req) { // data = {month:'yyyy-MM', doi, nhom}
+  const s = auth_(req);
+  requirePerm_(s, 'xem', 'Xem');
+  const d = (req && req.data) || {};
+  if (!/^\d{4}-\d{2}$/.test(String(d.month || ''))) throw new Error('Tháng không hợp lệ: ' + d.month);
+  scopeCheck_(s, d.doi);
+  const workers = roster_().filter(w => w.Doi === num_(d.doi) && w.Nhom === num_(d.nhom))
+    .sort((a, b) => (b.DangLam - a.DangLam) || (a.STT - b.STT));
+  const marks = {}; // MaCN -> { 'd' : 'X' }
+  const notes = {}; // MaCN -> { 'd' : 'ghi chú nghỉ' }
+  const sh = ss_().getSheetByName(TAB_MARK);
+  if (sh && sh.getLastRow() > 1) {
+    sh.getRange(2, 1, sh.getLastRow() - 1, MARK_HEADERS.length).getValues().forEach(r => {
+      const ngay = (r[0] instanceof Date) ? Utilities.formatDate(r[0], TZ, 'yyyy-MM-dd') : String(r[0] || '').slice(0, 10);
+      if (ngay.slice(0, 7) !== d.month || num_(r[1]) !== num_(d.doi) || num_(r[2]) !== num_(d.nhom)) return;
+      const ma = String(r[3] || '').trim();
+      if (!ma) return;
+      const day = String(Number(ngay.slice(8, 10)));
+      const kh = String(r[4] || '').trim().toUpperCase();
+      if (kh) (marks[ma] = marks[ma] || {})[day] = kh;
+      const note = String(r[7] || '').trim();
+      if (note) (notes[ma] = notes[ma] || {})[day] = note;
+    });
+  }
+  return { ok: true, workers, marks, notes };
+}
+
+function markRowIndex_(sh, ngay, maCN) {
+  if (!sh || sh.getLastRow() < 2) return -1;
+  const vals = sh.getRange(2, 1, sh.getLastRow() - 1, MARK_HEADERS.length).getValues();
+  for (let i = 0; i < vals.length; i++) {
+    const n = (vals[i][0] instanceof Date) ? Utilities.formatDate(vals[i][0], TZ, 'yyyy-MM-dd') : String(vals[i][0] || '').slice(0, 10);
+    if (n === ngay && String(vals[i][3] || '').trim() === maCN) return i;
+  }
+  return -1;
+}
+
+function saveWorkerMark(req) { // data = {Ngay, MaCN, KyHieu, GhiChu?} — KyHieu '' + không ghi chú = xóa chấm; không gửi GhiChu = giữ ghi chú cũ
+  const s = auth_(req);
+  const d = (req && req.data) || {};
+  checkDay_(d.Ngay);
+  const kh = String(d.KyHieu || '').trim().toUpperCase();
+  if (kh && !MARKS.includes(kh)) throw new Error('Ký hiệu không hợp lệ: ' + kh + ' (chỉ dùng X, V, P, O, NV, L, B)');
+  const w = roster_().find(x => x.MaCN === d.MaCN);
+  if (!w) throw new Error('Không thấy công nhân ' + d.MaCN);
+  scopeCheck_(s, w.Doi);
+  const sh = getOrCreateSheet_(TAB_MARK, MARK_HEADERS);
+  const idx = markRowIndex_(sh, d.Ngay, d.MaCN);
+  if (idx >= 0) requirePerm_(s, 'sua', 'Sửa ô chấm công đã có');
+  else requirePerm_(s, 'them', 'Chấm công');
+  let oldNote = '';
+  if (idx >= 0) oldNote = String(sh.getRange(idx + 2, 8).getValue() || '').trim();
+  const note = (d.GhiChu === undefined || d.GhiChu === null) ? oldNote : String(d.GhiChu).trim().slice(0, 200);
+  if (!kh && !note) {
+    if (idx >= 0) sh.deleteRow(idx + 2);
+    return { ok: true, cleared: true };
+  }
+  const nowStr = Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm:ss');
+  if (idx >= 0) sh.getRange(idx + 2, 1, 1, MARK_HEADERS.length).setValues([[d.Ngay, w.Doi, w.Nhom, w.MaCN, kh, nowStr, s.u, note]]);
+  else sh.appendRow([d.Ngay, w.Doi, w.Nhom, w.MaCN, kh, nowStr, s.u, note]);
+  return { ok: true };
+}
+
+function setDayMarks(req) { // data = {Ngay, Doi, Nhom, mode:'fillX'|'clear'}
+  const s = auth_(req);
+  const d = (req && req.data) || {};
+  checkDay_(d.Ngay);
+  scopeCheck_(s, d.Doi);
+  const sh = getOrCreateSheet_(TAB_MARK, MARK_HEADERS);
+  const nowStr = Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm:ss');
+  let n = 0;
+  if (d.mode === 'clear') {
+    requirePerm_(s, 'sua', 'Xóa chấm công cả ngày');
+    if (sh.getLastRow() > 1) {
+      const vals = sh.getRange(2, 1, sh.getLastRow() - 1, MARK_HEADERS.length).getValues();
+      for (let i = vals.length - 1; i >= 0; i--) {
+        const ngay = (vals[i][0] instanceof Date) ? Utilities.formatDate(vals[i][0], TZ, 'yyyy-MM-dd') : String(vals[i][0] || '').slice(0, 10);
+        if (ngay === d.Ngay && num_(vals[i][1]) === num_(d.Doi) && num_(vals[i][2]) === num_(d.Nhom)) { sh.deleteRow(i + 2); n++; }
+      }
+    }
+    ghiLog_('XOA_CHAM_NGAY', 'Đội ' + d.Doi + ' – Nhóm ' + d.Nhom, 'Ngày ' + d.Ngay + ': xóa ' + n + ' ô chấm', s.u);
+    return { ok: true, count: n };
+  }
+  // fillX: chấm X cho mọi công nhân đang làm CHƯA có ký hiệu ngày đó
+  requirePerm_(s, 'them', 'Chấm công');
+  const workers = roster_().filter(w => w.Doi === num_(d.Doi) && w.Nhom === num_(d.Nhom) && w.DangLam);
+  const rows = [];
+  workers.forEach(w => {
+    if (markRowIndex_(sh, d.Ngay, w.MaCN) < 0) rows.push([d.Ngay, w.Doi, w.Nhom, w.MaCN, 'X', nowStr, s.u, '']);
+  });
+  if (rows.length) sh.getRange(sh.getLastRow() + 1, 1, rows.length, MARK_HEADERS.length).setValues(rows);
+  ghiLog_('CHAM_X_NGAY', 'Đội ' + d.Doi + ' – Nhóm ' + d.Nhom, 'Ngày ' + d.Ngay + ': chấm X cho ' + rows.length + ' công nhân', s.u);
+  return { ok: true, count: rows.length };
+}
+
+/* Nhập danh sách + dữ liệu chấm T9/2026 từ tab ChamCongThuong của khách (chạy 1 lần từ editor/menu).
+ * Tab mẫu: dòng 12–61 = 50 công nhân Nhóm 1, Đội Srae Preah (= Đội 1); cột A STT, B Phần cạo,
+ * C Họ tên, D tên Khmer, E→AI = ngày 1–31 chấm X/P/O/NV/L/B; tháng 9/2026 (dòng ký "Ngày 15 tháng 9 năm 2026"). */
+function importDanhSachVaChamTuTabKhach() {
+  const sh = ss_().getSheetByName('ChamCongThuong');
+  if (!sh) throw new Error('Không thấy tab ChamCongThuong trong Sheet.');
+  const maxRow = Math.min(sh.getLastRow(), 61);
+  const vals = sh.getRange(1, 1, maxRow, 35).getValues();
+  const rosterSh = getOrCreateSheet_(TAB_ROSTER, ROSTER_HEADERS);
+  const markSh = getOrCreateSheet_(TAB_MARK, MARK_HEADERS);
+  const existRoster = roster_();
+  const existMarkKeys = {};
+  if (markSh.getLastRow() > 1) {
+    markSh.getRange(2, 1, markSh.getLastRow() - 1, MARK_HEADERS.length).getValues().forEach(r => {
+      const ngay = (r[0] instanceof Date) ? Utilities.formatDate(r[0], TZ, 'yyyy-MM-dd') : String(r[0] || '').slice(0, 10);
+      existMarkKeys[ngay + '|' + String(r[3] || '').trim()] = true;
+    });
+  }
+  let addedW = 0, addedM = 0;
+  const markRows = [];
+  for (let i = 11; i < vals.length; i++) { // dòng 12 trở đi (index 11)
+    const stt = num_(vals[i][0]);
+    const name = String(vals[i][2] || '').trim();
+    if (!stt || !name) continue;
+    const ma = '1-1-' + String(stt).padStart(3, '0');
+    if (!existRoster.find(w => w.MaCN === ma)) {
+      rosterSh.appendRow([ma, 1, 1, stt, String(vals[i][1] || '').trim(), name, String(vals[i][3] || '').trim(), 1]);
+      addedW++;
+    }
+    for (let d = 1; d <= 31; d++) {
+      const cell = String(vals[i][4 + (d - 1)] || '').trim().toUpperCase();
+      if (!MARKS.includes(cell)) continue;
+      const ngay = '2026-09-' + String(d).padStart(2, '0');
+      if (existMarkKeys[ngay + '|' + ma]) continue;
+      markRows.push([ngay, 1, 1, ma, cell, '', 'nhap-tu-tab-khach', '']);
+      addedM++;
+    }
+  }
+  if (markRows.length) markSh.getRange(markSh.getLastRow() + 1, 1, markRows.length, MARK_HEADERS.length).setValues(markRows);
+  ghiLog_('IMPORT_CN', 'ChamCongThuong', 'Thêm ' + addedW + ' công nhân, ' + addedM + ' ô chấm T9/2026 (Nhóm 1 Đội 1)');
+  try { SpreadsheetApp.getUi().alert('✅ Đã nhập từ tab ChamCongThuong: thêm ' + addedW + ' công nhân, ' + addedM + ' ô chấm tháng 9/2026 cho Nhóm 1 – Đội 1.'); } catch (e) {}
+  return { ok: true, addedWorkers: addedW, addedMarks: addedM };
 }
