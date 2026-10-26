@@ -166,6 +166,8 @@ table.wk td.hn{box-shadow:inset 0 -3px 0 #F9AB00}
 .wkrow .wnm{min-width:170px;flex:1 1 170px}
 .wknote{flex:1 1 160px}
 .wknote input{width:100%}
+.wklegend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:8px 0 4px;font-size:13px;color:var(--sub)}
+.mkchip{display:inline-block;min-width:24px;text-align:center;padding:2px 6px;border-radius:6px;font-weight:800;font-size:12px;margin-right:5px}
 button.wkview-on{background:var(--accent);color:#fff;border-color:var(--accent)}
 .pqacc{border:1.5px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px}
 .pqacc input[type="text"],.pqacc select{width:100%;height:42px;border:1px solid var(--border);border-radius:8px;padding:0 10px;font-size:15px;margin-bottom:8px}
@@ -212,6 +214,7 @@ button.wkview-on{background:var(--accent);color:#fff;border-color:var(--accent)}
         <input type="file" id="excelFile" accept=".xlsx,.xls,.csv" style="display:none">
       </div>
     </div>
+
     <div class="banner-warn" id="entryWarn" style="display:none"></div>
 
     <div class="card" id="phieuCard">
@@ -237,6 +240,7 @@ button.wkview-on{background:var(--accent);color:#fff;border-color:var(--accent)}
         <tr><td>Bóc mủ (thuê)</td><td><input class="yin" type="number" inputmode="decimal" id="f_ThueBocMu" placeholder="0"></td></tr>
         <tr class="tot"><td>Cộng thuê</td><td><div class="ro" style="background:transparent" id="sumMuc3">–</div></td></tr>
       </tbody></table>
+
       <div class="sec-head"><b>4. Mưa, lễ — loại ngày</b></div>
       <div class="seg" id="loaiNgaySeg">
         <button data-v="Thuong" class="active">☀️ Thường</button>
@@ -265,6 +269,9 @@ button.wkview-on{background:var(--accent);color:#fff;border-color:var(--accent)}
       <div class="fgrid">
         <div><label class="lbl">Danh sách phần vắng</label><input id="f_DanhSachVang" placeholder="VD 5, 12"></div>
         <div><label class="lbl">Lý do vắng</label><input id="f_LyDoVang" placeholder="VD ốm"></div>
+        <div><label class="lbl">Danh sách phần nghỉ việc</label><input id="f_DanhSachNghiViec" placeholder="VD 5, 6"></div>
+        <div><label class="lbl">Lý do nghỉ việc</label><input id="f_LyDoNghiViec" placeholder="VD không đảm bảo thu nhập"></div>
+        <div><label class="lbl">Danh sách phần tuyển mới</label><input id="f_DanhSachTuyenMoi" placeholder="VD 3, 4"></div>
         <div><label class="lbl">Danh sách phần thiếu</label><input id="f_DanhSachThieu" placeholder="VD 4, 10, 14, 16"></div>
         <div><label class="lbl">Cạo không hết cây</label><input id="f_CaoKhongHet" placeholder="VD phần 9, 17 cạo 70%"></div>
       </div>
@@ -385,7 +392,7 @@ button.wkview-on{background:var(--accent);color:#fff;border-color:var(--accent)}
       <select class="inp" id="wNhomSel"></select>
       <label class="lbl">Tháng</label>
       <input type="month" class="inp" id="wMonth">
-      <p class="hint" style="margin-top:8px">Hai kiểu xem: <b>Theo ngày</b> — chọn ngày, từng công nhân chọn Đi làm / Vắng / Nghỉ / Nghỉ hẳn và ghi chú lý do nghỉ. <b>Theo tháng</b> — lưới cả tháng, chạm vào 1 ô để đổi ký hiệu: <b>X</b> đi làm · <b>V</b> vắng · <b>P</b> nghỉ phép · <b>O</b> ốm · <b>NV</b> nghỉ việc · <b>L</b> lễ · <b>B</b> mưa bão · trống = chưa chấm. <b>Vắng</b> (V+P+O+L+B) và <b>Nghỉ việc</b> (NV) tự đếm sang phiếu + báo cáo.</p>
+      <p class="hint" style="margin-top:8px">Hai kiểu xem: <b>Theo ngày</b> — chọn ngày, từng công nhân chọn Đi làm / Vắng / Nghỉ / Nghỉ hẳn và ghi chú lý do nghỉ. <b>Theo tháng</b> — lưới cả tháng, chạm vào 1 ô để đổi ký hiệu: <b>X</b> đi làm · <b>V</b> vắng · <b>P</b> nghỉ phép · <b>O</b> ốm · <b>NV</b> nghỉ việc · <b>L</b> lễ · <b>B</b> mưa bão · trống = chưa chấm. <b>Vắng</b> (V+P+O+L+B) và <b>Nghỉ việc</b> (NV) tự đếm sang phiếu + báo cáo. <b>Chọn chấm xong phải bấm 💾 Lưu chấm công</b> mới ghi vào Sheet.</p>
     </div>
     <div class="card">
       <h3 id="wkTitle">Bảng chấm công nhân</h3>
@@ -395,6 +402,9 @@ button.wkview-on{background:var(--accent);color:#fff;border-color:var(--accent)}
       </div>
       <p class="hint">Ngày đang chọn: <b id="wkDayLabel">—</b></p>
       <div class="row" style="margin:8px 0 10px">
+        <button class="btn btn-green grow" id="btnSaveWk" disabled>💾 Lưu chấm công</button>
+      </div>
+      <div class="row" style="margin:8px 0 10px">
         <button class="qbtn grow" id="btnFillX">✓ Chấm đi làm tất cả (ô trống)</button>
         <button class="qbtn grow" id="btnClearDay">✕ Xóa chấm ngày</button>
       </div>
@@ -402,6 +412,15 @@ button.wkview-on{background:var(--accent);color:#fff;border-color:var(--accent)}
         <label class="lbl">Ngày chấm</label>
         <input type="date" class="inp" id="wkDate">
         <p class="hint" style="margin:8px 0" id="wkDaySummary">—</p>
+        <div class="wklegend">
+          <span><span class="mkchip mk-X">X</span> ថ្ងៃធ្វើការ · Ngày công làm việc</span>
+          <span><span class="mkchip mk-P">P</span> ឈប់សម្រាក · Nghỉ phép</span>
+          <span><span class="mkchip mk-O">O</span> ឈឺស្កាត់ · Ốm đau</span>
+          <span><span class="mkchip mk-B">B</span> ខ្យល់កន្រ្តាក់ · Mưa bão</span>
+          <span><span class="mkchip mk-L">L</span> បុណ្យ · Lễ, tết</span>
+          <span><span class="mkchip mk-NV">NV</span> ឈប់ពីការងារ · Nghỉ việc</span>
+          <span><span class="mkchip mk-V">V</span> អវត្តមាន · Vắng</span>
+        </div>
         <div id="wkDayList"></div>
       </div>
       <div id="wkMonthView" style="display:none">
@@ -409,6 +428,14 @@ button.wkview-on{background:var(--accent);color:#fff;border-color:var(--accent)}
         <div class="tblwrap"><table class="wk" id="wkGrid"><thead></thead><tbody></tbody><tfoot></tfoot></table></div>
       </div>
       <p class="hint" id="wkEmpty" style="display:none">Nhóm này chưa có danh sách công nhân. Thêm công nhân ở mục dưới (cần quyền Thêm) hoặc nhờ Admin nhập sẵn danh sách.</p>
+    </div>
+    <div class="card">
+      <h3 id="wkSumTitle">Tổng hợp chấm công theo tháng</h3>
+      <div class="tblwrap"><table class="wd" id="wkSumTable"><thead><tr>
+        <th>STT</th><th>Công nhân</th><th>Đi làm (X)</th><th>Vắng (V)</th><th>Nghỉ phép (P)</th><th>Ốm (O)</th><th>Lễ (L)</th><th>Mưa bão (B)</th><th>Nghỉ việc (NV)</th><th>Tổng vắng</th><th>Tổng ngày đã chấm</th>
+      </tr></thead><tbody></tbody></table></div>
+      <p class="hint" id="wkSumNote" style="margin-top:8px"></p>
+      <button class="btn btn-ghost btn-block" id="btnWkSumExcel" style="margin-top:10px">⬇ Xuất Excel bảng tổng hợp</button>
     </div>
     <div class="card">
       <h3>Thêm công nhân vào nhóm này</h3>
@@ -545,24 +572,33 @@ function derive(o, prev){
   d.CongTrangBi = TB_KEYS.reduce((s,k)=>s+num(d[k]),0);
   d.CongMuc1 = num(d.CongThuong)+num(d.CongDup)+num(d.CongChoang);
   d.CongMuc3 = num(d.ThueCao)+num(d.ThueBocMu);
-  d.DiLam = num(d.CongThuong);
-  d.Vang = num(d.Vang);
+  const mkRaw = d.ChamCN || null;
+  const mk = (mkRaw && mkRaw.apDung !== false) ? mkRaw : null; // chỉ map khi server xác nhận ngày đã chấm ĐỦ PHỦ (>=80%)
+  const vangGoc = (d.LuuVang!==undefined && d.LuuVang!==null) ? num(d.LuuVang) : num(d.Vang); // Vắng lưu gốc, không phải số đã derive
+  d.DiLam = mk ? num(mk.x) : num(d.CongThuong);
+  d.Vang = mk ? num(mk.vang) : vangGoc;
   d.CoMat = d.DiLam + d.Vang;
   d.ThieuLD = num(d.DinhBien) - d.CoMat;
   d.SoPhanThieu = countList(d.DanhSachThieu);
   d.SoPhanVang = d.Vang>0 ? d.Vang : countList(d.DanhSachVang);
-  const pc = prev ? (num(prev.CongThuong) + num(prev.Vang)) : null;
+  const pc = prev ? (prev.CoMat!==undefined && prev.CoMat!==null ? num(prev.CoMat) : num(prev.CongThuong)+num(prev.Vang)) : null;
   d.CoMatHomQua = pc;
-  const autoT = pc===null?0:Math.max(d.CoMat-pc,0);
-  const autoN = pc===null?0:Math.max(pc-d.CoMat,0);
+  const coSoLieu = (num(d.CongThuong)+num(d.CongDup)+num(d.CongChoang)+vangGoc+num(d.ThueCao)+num(d.ThueBocMu)+d.CongTrangBi) > 0 || !!mk;
+  const autoT = (pc===null || !coSoLieu) ? 0 : Math.max(d.CoMat-pc,0);
+  const autoN = (pc===null || !coSoLieu) ? 0 : Math.max(pc-d.CoMat,0);
   d.AutoTuyenMoi = autoT; d.AutoNghiViec = autoN;
   d.TuyenMoi = (d.TuyenMoiNhap===''||d.TuyenMoiNhap===null||d.TuyenMoiNhap===undefined) ? autoT : num(d.TuyenMoiNhap);
-  d.NghiViec = (d.NghiViecNhap===''||d.NghiViecNhap===null||d.NghiViecNhap===undefined) ? autoN : num(d.NghiViecNhap);
+  d.NghiViec = mk ? num(mk.nghi) : ((d.NghiViecNhap===''||d.NghiViecNhap===null||d.NghiViecNhap===undefined) ? autoN : num(d.NghiViecNhap));
   d.ChenhDiLamVsCoMatHomQua = pc===null?null:pc-d.DiLam;
   return d;
 }
-function prevOf(list, o){
-  let p=null; list.filter(x=>x.Doi===o.Doi&&x.Nhom===o.Nhom&&x.Ngay<o.Ngay).sort((a,b)=>a.Ngay<b.Ngay?-1:1).forEach(x=>p=x); return p;
+function enteredData(r){ // phiếu có số liệu thực (không tính định biên) — khớp hasData_ ở server
+  if(!r) return false;
+  if(r._coSoLieu !== undefined && r._coSoLieu !== null) return !!r._coSoLieu;
+  return (num(r.CongThuong)+num(r.CongDup)+num(r.CongChoang)+num(r.Vang)+num(r.ThueCao)+num(r.ThueBocMu)+num(r.CongTrangBi)) > 0;
+}
+function prevOf(list, o){ // phiếu trước CÓ SỐ LIỆU THỰC gần nhất (bắc cầu qua ngày chưa nhập — khớp server)
+  let p=null; list.filter(x=>x.Doi===o.Doi&&x.Nhom===o.Nhom&&x.Ngay<o.Ngay&&enteredData(x)).sort((a,b)=>a.Ngay<b.Ngay?-1:1).forEach(x=>p=x); return p;
 }
 function hasData(r){ return !!r && (num(r.DinhBien)>0 || num(r.CongThuong)>0 || num(r.CongDup)>0 || num(r.CongChoang)>0); }
 function demoDay(dateISO){
@@ -638,6 +674,7 @@ function call(fn, arg){
         }
         if(fn==='setWorkerActive'){ const w = DEMO_W.find(x=>x.MaCN===arg.MaCN); if(w) w.DangLam = arg.active?1:0; return resolve({ok:true}); }
         if(fn==='saveWorkerMark'){ const k = arg.Ngay+'|'+arg.MaCN; if(arg.KyHieu) DEMO_M[k]=arg.KyHieu; else delete DEMO_M[k]; if(arg.GhiChu !== undefined){ if(arg.GhiChu) DEMO_N[k]=arg.GhiChu; else delete DEMO_N[k]; } return resolve({ok:true}); }
+        if(fn==='saveMarksBatch'){ let n = 0; const deactivated = []; (arg.items || []).forEach(it=>{ const k = it.Ngay+'|'+it.MaCN; if(it.KyHieu !== undefined){ if(it.KyHieu) DEMO_M[k]=it.KyHieu; else delete DEMO_M[k]; } if(it.GhiChu !== undefined){ if(it.GhiChu) DEMO_N[k]=it.GhiChu; else delete DEMO_N[k]; } if(it.KyHieu === 'NV'){ const w = DEMO_W.find(x=>x.MaCN === it.MaCN); if(w && w.DangLam){ w.DangLam = 0; deactivated.push(it.MaCN); } } n++; }); return resolve({ok:true, count:n, deactivated}); }
         if(fn==='setDayMarks'){
           const ws = DEMO_W.filter(w=>w.Doi===num(arg.Doi)&&w.Nhom===num(arg.Nhom)&&w.DangLam);
           let n = 0;
@@ -713,7 +750,7 @@ document.querySelectorAll('[data-nav]').forEach(b=>b.addEventListener('click',()
 
 /* ================== NHẬP CÔNG ================== */
 function curRec(){ return dayRecs.find(r=>r.Doi===curDoi&&r.Nhom===curNhom) || {LoaiNgay:'Thuong'}; }
-const FIELDS = ['DinhBien','MaPhan','TongPhanPhien','PhienThuong','CongThuong','PhienDup','CongDup','PhienChoang','CongChoang','ThueCao','ThueBocMu','Vang','TuyenMoiNhap','NghiViecNhap','DanhSachVang','LyDoVang','DanhSachThieu','CaoKhongHet','GhiChu'].concat(TB_KEYS);
+const FIELDS = ['DinhBien','MaPhan','TongPhanPhien','PhienThuong','CongThuong','PhienDup','CongDup','PhienChoang','CongChoang','ThueCao','ThueBocMu','Vang','TuyenMoiNhap','NghiViecNhap','DanhSachVang','LyDoVang','DanhSachNghiViec','LyDoNghiViec','DanhSachTuyenMoi','DanhSachThieu','CaoKhongHet','GhiChu'].concat(TB_KEYS);
 function markDirty(){ if(!filling){ dirty=true; if(!formLocked) $('btnSaveBar').disabled=false; } refreshAuto(); }
 function buildTrangBiRows(){
   $('trangBiRows').innerHTML = TB_KEYS.map(k=>'<tr><td>'+TB_NAMES[k]+'</td><td><input class="yin tb-inp" type="number" inputmode="decimal" id="f_'+k+'" placeholder="0"></td></tr>').join('');
@@ -785,6 +822,8 @@ function fillForm(){
   filling = true;
   const r = curRec();
   FIELDS.forEach(f=>{ const el=$('f_'+f); if(el) el.value = (r[f]===undefined||r[f]===null)?'':r[f]; });
+  const fv = $('f_Vang'); // ô Vắng luôn là số LƯU GỐC — không đổ số đã derive (tránh ghi ngược khi bấm Lưu)
+  if(fv && r.LuuVang!==undefined && r.LuuVang!==null) fv.value = r.LuuVang;
   document.querySelectorAll('#loaiNgaySeg button').forEach(b=>b.classList.toggle('active', b.dataset.v===(r.LoaiNgay||'Thuong')));
   $('phieuCtx').textContent = tenDoi(curDoi)+' – Nhóm '+curNhom+' · '+fmtDateVN(curDate);
   dirty = false; $('btnSaveBar').disabled = true;
@@ -810,6 +849,8 @@ function applyLock(){
   $('btnNhomMua').disabled = formLocked;
   $('btnNhomLe').disabled = formLocked;
   if(formLocked) $('btnSaveBar').disabled = true;
+  const mkNow = !!(r && r.ChamCN && r.ChamCN.apDung); // chỉ khóa khi chấm CN đủ phủ (đã map thật)
+  ['f_Vang','f_NghiViecNhap'].forEach(id=>{ const el=$(id); if(el) el.disabled = formLocked || mkNow; });
   const bd = $('btnDeletePhieu');
   if(bd) bd.style.display = (SESSION && SESSION.xoa && has) ? 'inline-flex' : 'none';
 }
@@ -825,11 +866,12 @@ $('btnDeletePhieu').addEventListener('click', async ()=>{
 function readForm(){
   const o = {Ngay:curDate, Doi:curDoi, Nhom:curNhom, LoaiNgay:(document.querySelector('#loaiNgaySeg button.active')||{}).dataset?.v || 'Thuong'};
   FIELDS.forEach(f=>{ const el=$('f_'+f); if(el) o[f]=el.value; });
+  o.ChamCN = curRec().ChamCN || null;
   return o;
 }
 function prevRecOfCurrent(){
   let p=null;
-  monthRecs.filter(x=>x.Doi===curDoi&&x.Nhom===curNhom&&x.Ngay<curDate).sort((a,b)=>a.Ngay<b.Ngay?-1:1).forEach(x=>p=x);
+  monthRecs.filter(x=>x.Doi===curDoi&&x.Nhom===curNhom&&x.Ngay<curDate&&enteredData(x)).sort((a,b)=>a.Ngay<b.Ngay?-1:1).forEach(x=>p=x);
   return p;
 }
 function refreshAuto(){
@@ -842,7 +884,8 @@ function refreshAuto(){
   $('roCoMat').textContent = fmt(d.CoMat);
   $('roThieu').textContent = fmt(d.ThieuLD);
   const hasManual = (o.TuyenMoiNhap!=='' && o.TuyenMoiNhap!==undefined) || (o.NghiViecNhap!=='' && o.NghiViecNhap!==undefined);
-  $('autoTN').textContent = hasManual ? 'Tuyển mới / Nghỉ việc đang nhập tay theo báo cáo của đội.' : (prev ? ('Để trống Tuyển mới / Nghỉ việc: tự tính theo phiếu trước → Tuyển mới '+fmt(d.AutoTuyenMoi)+' · Nghỉ việc '+fmt(d.AutoNghiViec)+'.') : 'Chưa có phiếu trước: để trống Tuyển mới / Nghỉ việc sẽ tính là 0.');
+  const cc = o.ChamCN;
+  $('autoTN').textContent = (cc && cc.apDung) ? ('Ngày này đã chấm công từng công nhân — Đi làm '+fmt(cc.x)+' · Vắng '+fmt(cc.vang)+' · Nghỉ việc '+fmt(cc.nghi)+' lấy từ màn Chấm CN, phiếu tự map sang, không cần ghi tay (muốn sửa thì sửa ở màn Chấm CN).') : (cc ? ('Ngày này mới chấm '+fmt(cc.tong)+'/'+fmt(cc.can)+' công nhân ở màn Chấm CN — chưa đủ 80% nên phiếu CHƯA tự map, vẫn tính theo số nhập ở phiếu. Chấm đủ rồi quay lại kiểm tra.') : (hasManual ? 'Tuyển mới / Nghỉ việc đang nhập tay theo báo cáo của đội.' : (prev ? ('Để trống Tuyển mới / Nghỉ việc: tự tính theo phiếu trước → Tuyển mới '+fmt(d.AutoTuyenMoi)+' · Nghỉ việc '+fmt(d.AutoNghiViec)+'.') : 'Chưa có phiếu trước: để trống Tuyển mới / Nghỉ việc sẽ tính là 0.')));
   $('prevNote').textContent = prev ? ('Phiếu trước ('+fmtDateVN(prev.Ngay)+'): định biên '+fmt(prev.DinhBien)+', có mặt '+fmt(prev.CoMat)+'.') : 'Chưa có phiếu trước cho nhóm này.';
 }
 async function saveCurrent(showToast){
@@ -917,23 +960,29 @@ document.querySelectorAll('[data-ins]').forEach(b=>b.addEventListener('click',()
   ta.focus(); dirty = true; if(!formLocked) $('btnSaveBar').disabled = false;
 }));
 function buildDailyText(date, records){
+  const pad2 = n => String(num(n)).padStart(2,'0');
   const blocks=[];
   records.forEach(r=>{
-    if(!hasData(r) && !r.MaPhan) return;
+    const mapped = !!(r.ChamCN && r.ChamCN.apDung);
+    if(!hasData(r) && !r.MaPhan && !mapped) return;
+    const congThuongHien = mapped ? num(r.DiLam) : num(r.CongThuong); // ngày map từ chấm CN: công thường = số CN chấm X
     const L=[];
-    L.push('Ngày: '+fmtDateVN(date)+' — '+tenDoi(r.Doi));
+    L.push('CAO MỦ NGÀY: '+fmtDateVN(date)+' NHÓM '+r.Nhom+' - ĐỘI '+r.Doi);
     if(r.LoaiNgay==='Mua') L.push('🌧 NGÀY MƯA'); if(r.LoaiNgay==='Le') L.push('🎉 NGÀY LỄ');
-    L.push('1. Nhóm '+r.Nhom+': Tổng Công cạo '+fmt(r.CongMuc1)+' Phần');
-    if(r.MaPhan) L.push('   '+r.MaPhan+' : '+fmt(r.CongThuong)+'/'+(num(r.TongPhanPhien)||''));
-    L.push('2. Phần đứng lô: '+fmt(r.DiLam)+' Công nhân');
-    L.push('   + Công cạo: '+fmt(r.CongThuong)+' phần');
-    L.push('3. Phần vắng: '+fmt(r.SoPhanVang)+' phần : ('+(r.DanhSachVang||'')+')');
-    L.push('   Lý do: '+(r.LyDoVang||''));
-    L.push('4. Thiếu: '+fmt(r.SoPhanThieu)+' phần : ('+(r.DanhSachThieu||'')+')');
-    L.push('5. Công nhân có mặt: '+fmt(r.CoMat)+' Công nhân');
-    L.push('6. Cạo không hết cây: '+(r.CaoKhongHet||''));
-    if(r.CongTrangBi>0||r.CongMuc3>0) L.push('   Trang bị: '+fmt(r.CongTrangBi)+' công | Thuê: '+fmt(r.CongMuc3)+' công');
-    if(r.TuyenMoi>0||r.NghiViec>0) L.push('   Tuyển mới: '+fmt(r.TuyenMoi)+' | Nghỉ việc: '+fmt(r.NghiViec));
+    L.push('I. Tình hình cạo mủ:');
+    L.push('1. Cạo thường (đứng lô) : '+pad2(congThuongHien)+' phần'+(r.PhienThuong?', phiên '+r.PhienThuong:'')+'.');
+    L.push('2. Nhận thêm phần (choàng) : '+pad2(r.CongChoang)+' phần.');
+    L.push('3. Cạo đúp : '+pad2(r.CongDup)+' phần'+(r.PhienDup?', phiên '+r.PhienDup:'')+'.');
+    L.push('➡️ Tổng công cạo trong ngày : '+pad2(congThuongHien+num(r.CongChoang))+' phần. (thường và nhận thêm phần)');
+    L.push('II. Biến động công nhân');
+    L.push('1. Vắng : '+pad2(r.SoPhanVang)+' phần'+(r.DanhSachVang?' (phần '+r.DanhSachVang+')':'.'));
+    if(r.LyDoVang) L.push('Lý do: '+String(r.LyDoVang).replace(/\.+$/,'')+'.');
+    L.push('2. Nghỉ việc : '+pad2(r.NghiViec)+' phần'+(r.DanhSachNghiViec?' (ghi nhận phần '+r.DanhSachNghiViec+')':'')+'.');
+    if(r.LyDoNghiViec) L.push('Lý do: '+String(r.LyDoNghiViec).replace(/\.+$/,'')+'.');
+    L.push('3. Tuyển mới : '+pad2(r.TuyenMoi)+' phần'+(r.DanhSachTuyenMoi?' (phần '+r.DanhSachTuyenMoi+')':'')+'.');
+    L.push('4. Thiếu nhân công : '+pad2(r.SoPhanThieu)+' phần.');
+    const pct = num(r.DinhBien)>0 ? (num(r.CoMat)/num(r.DinhBien)*100).toFixed(2).replace('.',',') : '0,00';
+    L.push('👥 Tổng công nhân có mặt : '+fmt(r.CoMat)+'/'+fmt(r.DinhBien)+' người, đạt '+pct+'%.');
     blocks.push(L.join('\n'));
   });
   return blocks.join('\n\n') || 'Chưa có dữ liệu ngày này.';
@@ -967,7 +1016,7 @@ function renderDaySum(){
 }
 
 /* ================== NHẬP / XUẤT EXCEL ================== */
-const EXCEL_COLS = ['Ngay','Doi','Nhom','DinhBien','LoaiNgay','MaPhan','TongPhanPhien','PhienThuong','CongThuong','PhienDup','CongDup','PhienChoang','CongChoang','TB_ThietKe','TB_KiengChen','TB_ChanMua','TB_MaiCheMua','TB_CheChen','TB_VayCheChen','TB_CaoXa','TB_Khac','ThueCao','ThueBocMu','Vang','TuyenMoiNhap','NghiViecNhap','DanhSachVang','LyDoVang','DanhSachThieu','CaoKhongHet','GhiChu'];
+const EXCEL_COLS = ['Ngay','Doi','Nhom','DinhBien','LoaiNgay','MaPhan','TongPhanPhien','PhienThuong','CongThuong','PhienDup','CongDup','PhienChoang','CongChoang','TB_ThietKe','TB_KiengChen','TB_ChanMua','TB_MaiCheMua','TB_CheChen','TB_VayCheChen','TB_CaoXa','TB_Khac','ThueCao','ThueBocMu','Vang','TuyenMoiNhap','NghiViecNhap','DanhSachVang','LyDoVang','DanhSachNghiViec','LyDoNghiViec','DanhSachTuyenMoi','DanhSachThieu','CaoKhongHet','GhiChu'];
 function downloadBlob(blob, name){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 400); }
 function csvEscape(v){ v=(v===null||v===undefined)?'':String(v); return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }
 function rowsToCsv(rows){ return rows.map(r=>r.map(csvEscape).join(',')).join('\r\n'); }
@@ -1300,8 +1349,33 @@ $('btnLogout').addEventListener('click', ()=>{ setAuth(null); location.reload();
 
 /* ================== CHẤM CÔNG TỪNG CÔNG NHÂN ================== */
 let wkWorkers = [], wkMarks = {}, wkNotes = {}, wkSelDay = 1, wkView = 'day';
-const MARK_CYCLE = ['', 'X', 'V', 'P', 'O', 'NV', 'L', 'B'];
+const MARK_CYCLE = ['', 'X', 'P', 'O', 'B', 'L', 'NV'];
 const MARK_LBL = {X:'Đi làm', V:'Vắng', P:'Nghỉ', O:'Ốm', NV:'Nghỉ hẳn', L:'Lễ', B:'Mưa bão'};
+/* Thay đổi chấm CN chưa bấm Lưu: key 'YYYY-MM-DD|MaCN' -> {Ngay, MaCN, KyHieu?, GhiChu?} */
+let wkPending = {};
+function wkPKey(iso, ma){ return iso + '|' + ma; }
+function wkPendCount(){ return Object.keys(wkPending).length; }
+function wkIsoOf(m, day){ return m + '-' + String(day).padStart(2, '0'); }
+function wkEffMark(ma, ds, m){ const p = wkPending[wkPKey(wkIsoOf(m, ds), ma)]; if(p && p.KyHieu !== undefined) return p.KyHieu; return (wkMarks[ma] || {})[String(ds)] || ''; }
+function wkEffNote(ma, ds, m){ const p = wkPending[wkPKey(wkIsoOf(m, ds), ma)]; if(p && p.GhiChu !== undefined) return p.GhiChu; return (wkNotes[ma] || {})[String(ds)] || ''; }
+function wkSetPend(iso, ma, kyhieu, ghichu){
+  const k = wkPKey(iso, ma);
+  const p = wkPending[k] || {Ngay: iso, MaCN: ma};
+  if(kyhieu !== undefined) p.KyHieu = kyhieu;
+  if(ghichu !== undefined) p.GhiChu = ghichu;
+  wkPending[k] = p;
+  const ds = String(Number(iso.slice(8, 10)));
+  if(p.KyHieu !== undefined && p.KyHieu === ((wkMarks[ma] || {})[ds] || '')) delete p.KyHieu;
+  if(p.GhiChu !== undefined && p.GhiChu === ((wkNotes[ma] || {})[ds] || '')) delete p.GhiChu;
+  if(p.KyHieu === undefined && p.GhiChu === undefined) delete wkPending[k];
+  updateSaveWkBtn();
+}
+function updateSaveWkBtn(){
+  const b = $('btnSaveWk'); if(!b) return;
+  const n = wkPendCount();
+  b.disabled = n === 0;
+  b.textContent = n ? ('💾 Lưu chấm công (' + n + ' thay đổi chưa lưu)') : '💾 Lưu chấm công';
+}
 function escA(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 async function loadWorkers(){
   const doi = (SESSION && SESSION.doi) ? SESSION.doi : num($('wDoiSel').value) || 1;
@@ -1322,70 +1396,51 @@ function renderWk(doi, nhom, m){
   $('btnViewDay').classList.toggle('wkview-on', wkView === 'day');
   $('btnViewMonth').classList.toggle('wkview-on', wkView === 'month');
   $('wkDate').value = m + '-' + String(wkSelDay).padStart(2, '0');
-  const cd = wkDayCounts(wkSelDay);
+  const cd = wkDayCounts(wkSelDay, m);
   $('wkDayLabel').textContent = 'ngày ' + wkSelDay + '/' + mo + '/' + y + ' — Đi làm: ' + cd.X + ' · Vắng: ' + (cd.V + cd.P + cd.O + cd.L + cd.B) + ' · Nghỉ hẳn: ' + cd.NV;
   $('wkTitle').textContent = 'Bảng chấm ' + tenDoi(doi) + ' – Nhóm ' + nhom + ' · tháng ' + mo + '/' + y + ' (' + wkWorkers.filter(w=>w.DangLam).length + ' CN đang làm)';
   $('wkEmpty').style.display = wkWorkers.length ? 'none' : 'block';
   if(wkView === 'day') renderWkDay(doi, nhom, m); else renderWkGrid(doi, nhom, m);
+  renderWkSummary(doi, nhom, m);
+  updateSaveWkBtn();
 }
 function renderWkDay(doi, nhom, m){
   const [y, mo] = m.split('-').map(Number);
   const ds = String(wkSelDay);
-  const c = wkDayCounts(wkSelDay);
+  const c = wkDayCounts(wkSelDay, m);
   const vang = c.V + c.P + c.O + c.L + c.B;
   const active = wkWorkers.filter(w=>w.DangLam).length;
-  $('wkDaySummary').textContent = 'Ngày ' + wkSelDay + '/' + mo + '/' + y + ' — Đi làm: ' + c.X + ' · Vắng: ' + vang + ' (vắng ' + c.V + ' · nghỉ ' + c.P + ' · ốm ' + c.O + ') · Nghỉ hẳn: ' + c.NV + ' · Chưa chấm: ' + Math.max(0, active - c.X - vang - c.NV) + ' / ' + active + ' CN đang làm. Chạm vào trạng thái để chấm (chạm lại để bỏ); ô ghi chú mở khi công nhân vắng/nghỉ.';
-  const list = wkWorkers.filter(w => w.DangLam || (wkMarks[w.MaCN] || {})[ds] || (wkNotes[w.MaCN] || {})[ds]);
+  $('wkDaySummary').textContent = 'Ngày ' + wkSelDay + '/' + mo + '/' + y + ' — Đi làm: ' + c.X + ' · Vắng: ' + vang + ' (vắng ' + c.V + ' · nghỉ ' + c.P + ' · ốm ' + c.O + ') · Nghỉ hẳn: ' + c.NV + ' · Chưa chấm: ' + Math.max(0, active - c.X - vang - c.NV) + ' / ' + active + ' CN đang làm. Chạm vào trạng thái để chấm (chạm lại để bỏ); chọn xong bấm 💾 Lưu chấm công mới ghi vào Sheet; ô ghi chú mở khi công nhân vắng/nghỉ.';
+  const list = wkWorkers.filter(w => w.DangLam || wkEffMark(w.MaCN, ds, m) || wkEffNote(w.MaCN, ds, m));
   $('wkDayList').innerHTML = list.map(w=>{
-    const mk = (wkMarks[w.MaCN] || {})[ds] || '';
-    const nt = (wkNotes[w.MaCN] || {})[ds] || '';
+    const mk = wkEffMark(w.MaCN, ds, m);
+    const nt = wkEffNote(w.MaCN, ds, m);
     const seg = ['X','V','P','NV'].map(k=>'<button type="button" data-seg="'+w.MaCN+'|'+k+'" class="'+(mk===k ? 'on-'+k : '')+'">'+MARK_LBL[k]+'</button>').join('');
     return '<div class="wkrow'+(w.DangLam ? '' : ' off')+'">'
-      + '<div class="wnm"><b>'+w.STT+'. '+w.HoTen+'</b>'+(w.PhanCao ? ' <span class="hint">· phần '+w.PhanCao+'</span>' : '')+(w.TenKhmer ? '<br><span class="hint">'+escA(w.TenKhmer)+'</span>' : '')+'</div>'
+      + '<div class="wnm"><b>'+w.STT+'. '+w.HoTen+'</b>'+(w.TenKhmer ? '<br><span class="hint">'+escA(w.TenKhmer)+'</span>' : '')+'</div>'
       + '<div class="wkseg">'+seg+'</div>'
       + '<div class="wknote"><input class="inp" data-note="'+w.MaCN+'" placeholder="Ghi chú nghỉ…" value="'+escA(nt)+'" '+(((mk && mk !== 'X') || nt) ? '' : 'disabled')+'></div>'
       + (mk && !['X','V','P','NV'].includes(mk) ? '<span class="hint">Đang chấm: <b>'+mk+'</b> ('+(MARK_LBL[mk] || mk)+')</span>' : '')
       + '</div>';
   }).join('');
-  $('wkDayList').querySelectorAll('[data-seg]').forEach(b=>b.addEventListener('click', async ()=>{
+  $('wkDayList').querySelectorAll('[data-seg]').forEach(b=>b.addEventListener('click', ()=>{
     const parts = b.dataset.seg.split('|'), ma = parts[0], k = parts[1];
     const w = wkWorkers.find(x=>x.MaCN === ma);
     if(!w) return;
     if(!w.DangLam){ toast('Công nhân này đã nghỉ hẳn — cho đi làm lại mới chấm được.'); return; }
-    const cur = (wkMarks[ma] || {})[ds] || '';
+    const cur = wkEffMark(ma, ds, m);
     const nxt = (cur === k) ? '' : k;
-    const iso = m + '-' + ds.padStart(2, '0');
-    try{
-      await call('saveWorkerMark', {Ngay: iso, MaCN: ma, KyHieu: nxt});
-      if(!wkMarks[ma]) wkMarks[ma] = {};
-      if(nxt) wkMarks[ma][ds] = nxt; else delete wkMarks[ma][ds];
-      if(nxt === 'NV'){
-        if(SESSION && SESSION.sua){
-          try{ await call('setWorkerActive', {MaCN: ma, active: 0}); toast('🚫 ' + w.HoTen + ': đã chấm nghỉ việc ngày ' + wkSelDay + ' và cho nghỉ hẳn.'); loadWorkers(); return; }
-          catch(e2){ toast('Đã chấm NV nhưng chưa cho nghỉ hẳn được: ' + e2.message); }
-        } else {
-          toast('🚫 Đã chấm nghỉ việc (NV) cho ' + w.HoTen + ' ngày ' + wkSelDay + '. Ẩn khỏi danh sách (nghỉ hẳn) cần tài khoản có quyền Sửa.');
-        }
-      }
-      renderWk(doi, nhom, m);
-    }catch(e){ toast('Lỗi chấm: '+e.message); }
+    wkSetPend(m + '-' + ds.padStart(2, '0'), ma, nxt, undefined);
+    if(nxt === 'NV') toast('🚫 ' + w.HoTen + ': đã chọn Nghỉ hẳn — bấm 💾 Lưu chấm công để ghi (tài khoản có quyền Sửa thì app cũng ẩn khỏi danh sách).');
+    renderWk(doi, nhom, m);
   }));
-  $('wkDayList').querySelectorAll('[data-note]').forEach(inp=>inp.addEventListener('change', async ()=>{
-    const ma = inp.dataset.note;
-    const cur = (wkMarks[ma] || {})[ds] || '';
-    const iso = m + '-' + ds.padStart(2, '0');
-    try{
-      await call('saveWorkerMark', {Ngay: iso, MaCN: ma, KyHieu: cur, GhiChu: inp.value.trim()});
-      if(!wkNotes[ma]) wkNotes[ma] = {};
-      if(inp.value.trim()) wkNotes[ma][ds] = inp.value.trim(); else delete wkNotes[ma][ds];
-      toast('📝 Đã lưu ghi chú.');
-      renderWk(doi, nhom, m);
-    }catch(e){ toast('Lỗi lưu ghi chú: '+e.message); }
+  $('wkDayList').querySelectorAll('[data-note]').forEach(inp=>inp.addEventListener('change', ()=>{
+    wkSetPend(m + '-' + ds.padStart(2, '0'), inp.dataset.note, undefined, inp.value.trim());
   }));
 }
-function wkDayCounts(day){
+function wkDayCounts(day, m){
   const c = {X:0,V:0,P:0,O:0,NV:0,L:0,B:0};
-  wkWorkers.forEach(w=>{ const mk = (wkMarks[w.MaCN]||{})[String(day)]; if(mk && c[mk] !== undefined) c[mk]++; });
+  wkWorkers.forEach(w=>{ const mk = m ? wkEffMark(w.MaCN, day, m) : ((wkMarks[w.MaCN]||{})[String(day)] || ''); if(mk && c[mk] !== undefined) c[mk]++; });
   return c;
 }
 function renderWkGrid(doi, nhom, m){
@@ -1400,35 +1455,29 @@ function renderWkGrid(doi, nhom, m){
   $('wkGrid').querySelector('thead').innerHTML = head;
   $('wkGrid').querySelectorAll('thead th[data-day]').forEach(th=>th.addEventListener('click', ()=>{ wkSelDay = num(th.dataset.day); renderWk(doi, nhom, m); }));
   $('wkGrid').querySelector('tbody').innerHTML = wkWorkers.map(w=>{
-    const mm = wkMarks[w.MaCN] || {};
     let cells = '', cx = 0, cv = 0, cnv = 0;
     for(let d = 1; d <= dim; d++){
-      const mk = mm[String(d)] || '';
-      const nt = (wkNotes[w.MaCN] || {})[String(d)] || '';
+      const mk = wkEffMark(w.MaCN, d, m);
+      const nt = wkEffNote(w.MaCN, d, m);
       if(mk === 'X') cx++; else if(mk === 'NV') cnv++; else if(mk) cv++;
       cells += '<td class="cell '+(mk ? 'mk-'+mk : '')+(nt ? ' hn' : '')+'" data-ma="'+w.MaCN+'" data-day="'+d+'"'+(nt ? ' title="Ghi chú: '+escA(nt)+'"' : '')+'>'+(mk || '·')+'</td>';
     }
     const actBtn = (SESSION && SESSION.sua) ? ' <button class="qbtn" style="height:26px;padding:0 8px;font-size:11.5px" data-act="'+w.MaCN+'">'+(w.DangLam ? 'Nghỉ hẳn' : 'Đi làm lại')+'</button>' : '';
-    return '<tr'+(w.DangLam ? '' : ' class="off"')+'><td class="nm"><b>'+w.STT+'. '+w.HoTen+'</b>'+(w.PhanCao ? ' <span class="hint">· phần '+w.PhanCao+'</span>' : '')+actBtn+'</td>'+cells+'<td><b>'+cx+'</b></td><td>'+cv+'</td><td>'+cnv+'</td></tr>';
+    return '<tr'+(w.DangLam ? '' : ' class="off"')+'><td class="nm"><b>'+w.STT+'. '+w.HoTen+'</b>'+actBtn+'</td>'+cells+'<td><b>'+cx+'</b></td><td>'+cv+'</td><td>'+cnv+'</td></tr>';
   }).join('');
   let foot = '<tr><td class="nm"><b>Cộng ngày (X / vắng / NV)</b></td>';
-  for(let d = 1; d <= dim; d++){ const c = wkDayCounts(d); foot += '<td><b>'+c.X+'</b><br><span style="color:#8A6100">'+(c.V+c.P+c.O+c.L+c.B)+'</span>/<span style="color:#B3261E">'+c.NV+'</span></td>'; }
+  for(let d = 1; d <= dim; d++){ const c = wkDayCounts(d, m); foot += '<td><b>'+c.X+'</b><br><span style="color:#8A6100">'+(c.V+c.P+c.O+c.L+c.B)+'</span>/<span style="color:#B3261E">'+c.NV+'</span></td>'; }
   foot += '<td></td><td></td><td></td></tr>';
   $('wkGrid').querySelector('tfoot').innerHTML = foot;
-  $('wkGrid').querySelectorAll('td.cell').forEach(td=>td.addEventListener('click', async ()=>{
+  $('wkGrid').querySelectorAll('td.cell').forEach(td=>td.addEventListener('click', ()=>{
     const w = wkWorkers.find(x=>x.MaCN === td.dataset.ma);
     if(!w) return;
     if(!w.DangLam){ toast('Công nhân này đã nghỉ hẳn — cho đi làm lại mới chấm được.'); return; }
     const day = num(td.dataset.day);
-    const cur = (wkMarks[w.MaCN] || {})[String(day)] || '';
+    const cur = wkEffMark(w.MaCN, day, m);
     const nxt = MARK_CYCLE[(MARK_CYCLE.indexOf(cur) + 1) % MARK_CYCLE.length];
-    const iso = m + '-' + String(day).padStart(2, '0');
-    try{
-      await call('saveWorkerMark', {Ngay: iso, MaCN: w.MaCN, KyHieu: nxt});
-      if(!wkMarks[w.MaCN]) wkMarks[w.MaCN] = {};
-      if(nxt) wkMarks[w.MaCN][String(day)] = nxt; else delete wkMarks[w.MaCN][String(day)];
-      renderWk(doi, nhom, m);
-    }catch(e){ toast('Lỗi chấm: '+e.message); }
+    wkSetPend(m + '-' + String(day).padStart(2, '0'), w.MaCN, nxt, undefined);
+    renderWk(doi, nhom, m);
   }));
   $('wkGrid').querySelectorAll('[data-act]').forEach(b=>b.addEventListener('click', async ()=>{
     const w = wkWorkers.find(x=>x.MaCN === b.dataset.act);
@@ -1448,22 +1497,75 @@ $('wkDate').addEventListener('change', ()=>{
   if(v.slice(0, 7) !== ($('wMonth').value || curMonth)) $('wMonth').value = v.slice(0, 7);
   loadWorkers();
 });
-$('btnFillX').addEventListener('click', async ()=>{
+$('btnFillX').addEventListener('click', ()=>{
   const doi = (SESSION && SESSION.doi) ? SESSION.doi : num($('wDoiSel').value) || 1;
   const nhom = num($('wNhomSel').value) || 1;
   const m = $('wMonth').value || curMonth;
-  const iso = m + '-' + String(wkSelDay).padStart(2, '0');
-  try{ const r = await call('setDayMarks', {Ngay: iso, Doi: doi, Nhom: nhom, mode: 'fillX'}); toast('✓ Đã chấm X cho '+r.count+' công nhân ngày '+wkSelDay+'.'); loadWorkers(); }
-  catch(e){ toast('Lỗi: '+e.message); }
+  let n = 0;
+  wkWorkers.filter(w=>w.DangLam).forEach(w=>{
+    if(!wkEffMark(w.MaCN, wkSelDay, m)){ wkSetPend(wkIsoOf(m, wkSelDay), w.MaCN, 'X', undefined); n++; }
+  });
+  toast(n ? ('✓ Đã chọn Đi làm cho ' + n + ' công nhân ngày ' + wkSelDay + ' — bấm 💾 Lưu chấm công để ghi vào Sheet.') : ('Ngày ' + wkSelDay + ' không còn ô trống nào để chấm đi làm.'));
+  renderWk(doi, nhom, m);
 });
-$('btnClearDay').addEventListener('click', async ()=>{
-  if(!confirm('Xóa toàn bộ chấm công ngày ' + wkSelDay + ' của nhóm này?')) return;
+$('btnClearDay').addEventListener('click', ()=>{
+  if(!confirm('Xóa toàn bộ chấm công ngày ' + wkSelDay + ' của nhóm này? (Chỉ thật sự xóa khi bấm 💾 Lưu chấm công)')) return;
   const doi = (SESSION && SESSION.doi) ? SESSION.doi : num($('wDoiSel').value) || 1;
   const nhom = num($('wNhomSel').value) || 1;
   const m = $('wMonth').value || curMonth;
-  const iso = m + '-' + String(wkSelDay).padStart(2, '0');
-  try{ const r = await call('setDayMarks', {Ngay: iso, Doi: doi, Nhom: nhom, mode: 'clear'}); toast('✕ Đã xóa '+r.count+' ô chấm ngày '+wkSelDay+'.'); loadWorkers(); }
-  catch(e){ toast('Lỗi: '+e.message); }
+  let n = 0;
+  wkWorkers.forEach(w=>{
+    if(wkEffMark(w.MaCN, wkSelDay, m) || wkEffNote(w.MaCN, wkSelDay, m)){ wkSetPend(wkIsoOf(m, wkSelDay), w.MaCN, '', ''); n++; }
+  });
+  toast(n ? ('✕ Đã chọn xóa chấm của ' + n + ' công nhân ngày ' + wkSelDay + ' — bấm 💾 Lưu chấm công để ghi vào Sheet.') : 'Ngày này chưa có ai được chấm.');
+  renderWk(doi, nhom, m);
+});
+$('btnSaveWk').addEventListener('click', async ()=>{
+  const items = Object.values(wkPending);
+  if(!items.length){ toast('Chưa có thay đổi nào để lưu.'); return; }
+  try{
+    const r = await call('saveMarksBatch', {items});
+    wkPending = {}; updateSaveWkBtn();
+    toast('💾 Đã lưu ' + (r.count || items.length) + ' thay đổi chấm công vào Sheet.' + ((r.deactivated && r.deactivated.length) ? ' Đã cho nghỉ hẳn ' + r.deactivated.length + ' công nhân (chấm NV).' : ''));
+    loadWorkers();
+  }catch(e){ toast('Lỗi lưu chấm công: ' + e.message); }
+});
+function wkSummaryRows(m){
+  const dim = new Date(Number(m.slice(0,4)), Number(m.slice(5,7)), 0).getDate();
+  return wkWorkers.map(w=>{
+    const c = {X:0,V:0,P:0,O:0,L:0,B:0,NV:0};
+    for(let d = 1; d <= dim; d++){ const mk = wkEffMark(w.MaCN, d, m); if(mk && c[mk] !== undefined) c[mk]++; }
+    c.TongVang = c.V + c.P + c.O + c.L + c.B;
+    c.TongCham = c.X + c.TongVang + c.NV;
+    return { w, c };
+  }).filter(r => r.w.DangLam || r.c.TongCham > 0);
+}
+function renderWkSummary(doi, nhom, m){
+  const [y, mo] = m.split('-').map(Number);
+  $('wkSumTitle').textContent = 'Tổng hợp chấm công tháng ' + mo + '/' + y + ' — ' + tenDoi(doi) + ' · Nhóm ' + nhom;
+  const rows = wkSummaryRows(m);
+  const tot = {X:0,V:0,P:0,O:0,L:0,B:0,NV:0,TongVang:0,TongCham:0};
+  rows.forEach(r=>{ Object.keys(tot).forEach(k=>{ tot[k] += r.c[k]; }); });
+  $('wkSumTable').querySelector('tbody').innerHTML = (rows.map(r=>
+    '<tr><td>'+r.w.STT+'</td><td><b>'+r.w.HoTen+'</b>'+(r.w.DangLam ? '' : ' <span class="badge b-none">đã nghỉ hẳn</span>')+'</td><td><b>'+r.c.X+'</b></td><td>'+r.c.V+'</td><td>'+r.c.P+'</td><td>'+r.c.O+'</td><td>'+r.c.L+'</td><td>'+r.c.B+'</td><td>'+r.c.NV+'</td><td>'+r.c.TongVang+'</td><td>'+r.c.TongCham+'</td></tr>'
+  ).join('') || '<tr><td colspan="11" style="text-align:left">Chưa có công nhân nào.</td></tr>')
+  + '<tr class="tot"><td></td><td>TỔNG CỘNG (' + rows.length + ' công nhân)</td><td>'+tot.X+'</td><td>'+tot.V+'</td><td>'+tot.P+'</td><td>'+tot.O+'</td><td>'+tot.L+'</td><td>'+tot.B+'</td><td>'+tot.NV+'</td><td>'+tot.TongVang+'</td><td>'+tot.TongCham+'</td></tr>';
+  $('wkSumNote').textContent = 'Tổng vắng = V + P + O + L + B (không tính NV). Tổng ngày đã chấm = Đi làm + Tổng vắng + NV.' + (wkPendCount() ? ' Đang có ' + wkPendCount() + ' thay đổi chưa bấm Lưu — bảng này đã tính cả các thay đổi đó.' : '');
+}
+$('btnWkSumExcel').addEventListener('click', ()=>{
+  const doi = (SESSION && SESSION.doi) ? SESSION.doi : num($('wDoiSel').value) || 1;
+  const nhom = num($('wNhomSel').value) || 1;
+  const m = $('wMonth').value || curMonth;
+  const [y, mo] = m.split('-').map(Number);
+  const rows = wkSummaryRows(m);
+  const tot = {X:0,V:0,P:0,O:0,L:0,B:0,NV:0,TongVang:0,TongCham:0};
+  rows.forEach(r=>{ Object.keys(tot).forEach(k=>{ tot[k] += r.c[k]; }); });
+  const aoa = [['BẢNG TỔNG HỢP CHẤM CÔNG THÁNG ' + mo + '/' + y + ' — ' + tenDoi(doi) + ' · Nhóm ' + nhom],
+    ['STT','Họ và tên','Tên Khmer','Đi làm (X)','Vắng (V)','Nghỉ phép (P)','Ốm (O)','Lễ (L)','Mưa bão (B)','Nghỉ việc (NV)','Tổng vắng','Tổng ngày đã chấm']]
+    .concat(rows.map(r=>[r.w.STT, r.w.HoTen, r.w.TenKhmer || '', r.c.X, r.c.V, r.c.P, r.c.O, r.c.L, r.c.B, r.c.NV, r.c.TongVang, r.c.TongCham]))
+    .concat([['', 'TỔNG CỘNG (' + rows.length + ' công nhân)', '', tot.X, tot.V, tot.P, tot.O, tot.L, tot.B, tot.NV, tot.TongVang, tot.TongCham]]);
+  saveWorkbook(aoa, 'tong-hop-cham-cong-' + m + '-doi' + doi + '-nhom' + nhom);
+  toast('⬇ Đã xuất Excel bảng tổng hợp tháng ' + mo + '/' + y + '.');
 });
 $('btnAddWorker').addEventListener('click', async ()=>{
   const name = $('nwName').value.trim();

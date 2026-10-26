@@ -21,7 +21,7 @@ const HEADERS = [
   'PhanDungLo','Vang','DanhSachVang','LyDoVang','DanhSachThieu','CaoKhongHet','GhiChu',
   'CapNhatLuc','NguoiCapNhat',
   // Cột thêm về sau — LUÔN thêm ở CUỐI để không xáo trộn vị trí cột cũ trong Sheet
-  'TB_MaiCheMua','TuyenMoiNhap','NghiViecNhap'
+  'TB_MaiCheMua','TuyenMoiNhap','NghiViecNhap','DanhSachNghiViec','LyDoNghiViec','DanhSachTuyenMoi'
 ];
 
 const TRANG_BI_KEYS = ['TB_ThietKe','TB_KiengChen','TB_ChanMua','TB_MaiCheMua','TB_CheChen','TB_VayCheChen','TB_CaoXa','TB_Khac'];
@@ -133,6 +133,11 @@ function setupHeThong() {
   getOrCreateSheet_(TAB_DATA, HEADERS);
   getOrCreateSheet_(TAB_ROSTER, ROSTER_HEADERS);
   getOrCreateSheet_(TAB_MARK, MARK_HEADERS);
+  // Ép định dạng TEXT cho cột mã CN ở cả 2 tab chấm CN — chống Sheets tự biến mã kiểu "1-1-2001" thành ngày
+  const rsh0 = ss_().getSheetByName(TAB_ROSTER);
+  if (rsh0) fmtTextCol_(rsh0, 2, 1, Math.max(rsh0.getMaxRows() - 1, 1));
+  const msh0 = ss_().getSheetByName(TAB_MARK);
+  if (msh0) fmtTextCol_(msh0, 2, 4, Math.max(msh0.getMaxRows() - 1, 1));
   getOrCreateSheet_(TAB_LOG, ['ThoiGian','HanhDong','DoiTuong','NguoiThucHien','ChiTiet']);
   const role = getOrCreateSheet_(TAB_ROLE, ACC_HEADERS);
   // Tab PHAN_QUYEN còn định dạng cũ (Email/VaiTro) hoặc chưa có tài khoản -> ghi lại theo định dạng mới + 3 tài khoản mặc định
@@ -267,36 +272,81 @@ function countList_(s) {
   return String(s).split(',').map(x => x.trim()).filter(x => x !== '').length;
 }
 
-// Bổ sung các số tự tính cho 1 bản ghi (cần map bản ghi theo nhóm để lấy hôm trước).
-// mk = tổng hợp chấm công từng công nhân của đúng ngày/đội/nhóm đó (nếu có chấm):
-// khi có chấm CN thì Vắng và Nghỉ việc ĐẾM TỪ BẢNG CHẤM CN (khách chốt 26/10), không suy từ phiếu nữa.
+// Phiếu có SỐ LIỆU THỰC (đã nhập công/vắng/thuê/trang bị) — phiếu chỉ có định biên
+// (dòng tạo sẵn cho ngày chưa nhập) KHÔNG tính, để chuỗi Tuyển/Nghỉ bắc cầu qua nó.
+function hasData_(o) {
+  if (!o) return false;
+  let s = num_(o.CongThuong) + num_(o.CongDup) + num_(o.CongChoang) + num_(o.Vang) + num_(o.ThueCao) + num_(o.ThueBocMu);
+  TRANG_BI_KEYS.forEach(k => { s += num_(o[k]); });
+  return s > 0;
+}
+
+// Bổ sung các số tự tính cho 1 bản ghi. prev = bản ghi ĐÃ DERIVE gần nhất trước ngày này
+// mà CÓ SỐ LIỆU THỰC (deriveChain_ bắc cầu qua các ngày chưa nhập) — hai phía phép trừ
+// Tuyển/Nghỉ cùng dùng Có mặt ĐÃ derive, không còn hiện tượng ngày trống "nuốt" toàn bộ
+// Có mặt hôm trước thành nghỉ việc giả (vụ +567 ngày 24/10/2026).
+// mk = tổng hợp chấm CN của đúng ngày/đội/nhóm (nếu có): chỉ GHI ĐÈ sang phiếu khi ngày đó
+// đã chấm ĐỦ PHỦ (số CN được chấm >= 80% CN đang làm của nhóm) — chấm lạc vài dòng
+// (test/bấm nhầm) không phá số của phiếu.
 function derive_(o, prev, mk) {
   const d = Object.assign({}, o);
   d.CongTrangBi = TRANG_BI_KEYS.reduce((s, k) => s + num_(d[k]), 0);
   d.CongMuc1 = num_(d.CongThuong) + num_(d.CongDup) + num_(d.CongChoang);
   d.CongMuc3 = num_(d.ThueCao) + num_(d.ThueBocMu);
-  // Từ bản 26/10: bỏ ô "Phần đứng lô" riêng — Công thường CHÍNH LÀ số công nhân đứng lô
-  d.DiLam = num_(d.CongThuong);
-  d.Vang = mk ? mk.vang : num_(d.Vang);
-  d.ChamCN = mk ? { x: mk.x, vang: mk.vang, nghi: mk.nghi } : null;
+  const mkOk = !!(mk && mk.can > 0 && mk.tong >= Math.ceil(mk.can * 0.8));
+  d.ChamCN = mk ? { x: mk.x, vang: mk.vang, nghi: mk.nghi, tong: mk.tong, can: mk.can, apDung: mkOk } : null;
+  d.LuuVang = num_(o.Vang); // số Vắng LƯU GỐC trong Sheet — giao diện đổ số này vào ô nhập, không đổ số đã derive
+  // Từ bản 26/10: bỏ ô "Phần đứng lô" riêng — Công thường CHÍNH LÀ số công nhân đứng lô.
+  // Ngày chấm CN đủ phủ -> Đi làm = số CN chấm X, Vắng/Nghỉ việc đếm từ bảng chấm CN (map thẳng, không ghi tay lại)
+  d.DiLam = mkOk ? mk.x : num_(d.CongThuong);
+  d.Vang = mkOk ? mk.vang : num_(d.Vang);
   d.CoMat = d.DiLam + d.Vang;
   d.ThieuLD = num_(d.DinhBien) - d.CoMat;
   d.SoPhanThieu = countList_(d.DanhSachThieu);
   d.SoPhanVang = d.Vang > 0 ? d.Vang : countList_(d.DanhSachVang);
-  const prevCoMat = prev ? ( num_(prev.CongThuong) + num_(prev.Vang) ) : null;
+  const prevCoMat = prev ? prev.CoMat : null;
   d.CoMatHomQua = prevCoMat;
   // Tuyển mới / Nghỉ việc: ưu tiên số NHẬP TAY theo báo cáo chấm công của đội (khách chốt 26/10);
-  // để trống thì tự tính theo chênh Có mặt so với phiếu trước như cũ
-  const autoTuyen = prevCoMat === null ? 0 : Math.max(d.CoMat - prevCoMat, 0);
-  const autoNghi = prevCoMat === null ? 0 : Math.max(prevCoMat - d.CoMat, 0);
+  // để trống thì tự tính theo chênh Có mặt — NHƯNG chỉ khi phiếu này có số liệu thực
+  // (hoặc chấm CN đủ phủ) và có phiếu trước có số liệu thực để đối chiếu.
+  const coSoLieu = hasData_(o) || mkOk;
+  const autoTuyen = (prevCoMat === null || !coSoLieu) ? 0 : Math.max(d.CoMat - prevCoMat, 0);
+  const autoNghi = (prevCoMat === null || !coSoLieu) ? 0 : Math.max(prevCoMat - d.CoMat, 0);
   d.AutoTuyenMoi = autoTuyen;
   d.AutoNghiViec = autoNghi;
   d.TuyenMoi = (d.TuyenMoiNhap === '' || d.TuyenMoiNhap === null || d.TuyenMoiNhap === undefined) ? autoTuyen : num_(d.TuyenMoiNhap);
-  // Có chấm công từng CN trong ngày -> Nghỉ việc = số CN chấm NV hôm đó (ghi đè cả nhập tay lẫn tự tính chênh)
-  d.NghiViec = mk ? mk.nghi : ((d.NghiViecNhap === '' || d.NghiViecNhap === null || d.NghiViecNhap === undefined) ? autoNghi : num_(d.NghiViecNhap));
+  // Ngày chấm CN đủ phủ -> Nghỉ việc = số CN chấm NV hôm đó (ghi đè cả nhập tay lẫn tự tính chênh)
+  d.NghiViec = mkOk ? mk.nghi : ((d.NghiViecNhap === '' || d.NghiViecNhap === null || d.NghiViecNhap === undefined) ? autoNghi : num_(d.NghiViecNhap));
   // Chỉ số tham khảo theo cách diễn đạt ở yêu cầu 4 (để đối chiếu, không dùng tính Có mặt)
   d.ChenhDiLamVsCoMatHomQua = prevCoMat === null ? null : prevCoMat - d.DiLam;
+  d._coSoLieu = coSoLieu ? 1 : 0;
   return d;
+}
+
+/* Derive TOÀN BỘ bản ghi theo chuỗi từng nhóm (1 lượt): prev của mỗi bản ghi là bản ghi
+ * có số liệu thực gần nhất trước nó trong cùng nhóm. Trả {byKey, byGroup}. */
+function deriveChain_(all, mkMap) {
+  const groups = {};
+  all.forEach(o => { const k = o.Doi + '-' + o.Nhom; (groups[k] = groups[k] || []).push(o); });
+  const byKey = {}, byGroup = {};
+  Object.keys(groups).forEach(k => {
+    const arr = groups[k].slice().sort((a, b) => a.Ngay < b.Ngay ? -1 : 1);
+    let prevD = null;
+    byGroup[k] = arr.map(o => {
+      const d = derive_(o, prevD, mkOf_(mkMap, o));
+      byKey[o.Ngay + '|' + o.Doi + '|' + o.Nhom] = d;
+      if (d._coSoLieu) prevD = d;
+      return d;
+    });
+  });
+  return { byKey, byGroup };
+}
+
+function prevDerived_(chain, doi, nhom, ngay) {
+  const arr = chain.byGroup[doi + '-' + nhom] || [];
+  let p = null;
+  for (const d of arr) { if (d.Ngay < ngay) { if (d._coSoLieu) p = d; } else break; }
+  return p;
 }
 
 function prevMap_(all) {
@@ -316,21 +366,35 @@ function findPrev_(map, o) {
   return prev;
 }
 
-/* Tổng hợp chấm công từng CN theo khóa Ngay|Doi|Nhom: x = số X, vang = số V/P/O/L/B, nghi = số NV */
+/* Tổng hợp chấm CN theo khóa Ngay|Doi|Nhom: x = số X, vang = số V/P/O/L/B, nghi = số NV,
+ * tong = số CN PHÂN BIỆT được chấm, can = số CN đang làm của nhóm (để derive_ xét độ phủ).
+ * Hàng rào toàn vẹn: khử trùng theo (Ngày, MaCN) — dòng SAU thắng; MaCN không thuộc
+ * danh sách CN thì bỏ qua (dòng rác/test không lọt vào số liệu). */
 function marksMap_() {
   const sh = ss_().getSheetByName(TAB_MARK);
   const map = {};
   if (!sh || sh.getLastRow() < 2) return map;
+  const valid = {}, canMap = {};
+  roster_().forEach(w => {
+    valid[w.MaCN] = true;
+    if (w.DangLam) { const k = w.Doi + '|' + w.Nhom; canMap[k] = (canMap[k] || 0) + 1; }
+  });
   const vals = sh.getRange(2, 1, sh.getLastRow() - 1, MARK_HEADERS.length).getValues();
+  const lastByKey = {}; // 'Ngay|MaCN' -> {doi, nhom, kh}
   vals.forEach(r => {
     const ngay = (r[0] instanceof Date) ? Utilities.formatDate(r[0], TZ, 'yyyy-MM-dd') : String(r[0] || '').slice(0, 10);
-    if (!ngay) return;
-    const k = ngay + '|' + num_(r[1]) + '|' + num_(r[2]);
-    const m = map[k] || (map[k] = { x: 0, vang: 0, nghi: 0 });
-    const kh = String(r[4] || '').trim().toUpperCase();
-    if (kh === 'X') m.x++;
-    else if (kh === 'NV') m.nghi++;
-    else if (kh === 'V' || kh === 'P' || kh === 'O' || kh === 'L' || kh === 'B') m.vang++;
+    const ma = maCNStr_(r[3]);
+    if (!ngay || !ma || !valid[ma]) return;
+    lastByKey[ngay + '|' + ma] = { doi: num_(r[1]), nhom: num_(r[2]), kh: String(r[4] || '').trim().toUpperCase() };
+  });
+  Object.keys(lastByKey).forEach(k => {
+    const it = lastByKey[k];
+    const gk = k.split('|')[0] + '|' + it.doi + '|' + it.nhom;
+    const m = map[gk] || (map[gk] = { x: 0, vang: 0, nghi: 0, tong: 0, can: canMap[it.doi + '|' + it.nhom] || 0 });
+    m.tong++;
+    if (it.kh === 'X') m.x++;
+    else if (it.kh === 'NV') m.nghi++;
+    else if (it.kh === 'V' || it.kh === 'P' || it.kh === 'O' || it.kh === 'L' || it.kh === 'B') m.vang++;
   });
   return map;
 }
@@ -361,16 +425,17 @@ function getDay(req) {
 function getDayRecords_(dateISO, scopeDoi) {
   checkDay_(dateISO);
   const all = readAll_();
-  const map = prevMap_(all);
   const mkMap = marksMap_();
+  const chain = deriveChain_(all, mkMap);
   const cfg = getConfig_();
   const dois = scopeDoi ? [scopeDoi] : [1, 2];
   const records = [];
   dois.forEach(doi => {
     for (let nhom = 1; nhom <= cfg.SoNhomMoiDoi; nhom++) {
-      const found = all.find(o => o.Ngay === dateISO && o.Doi === doi && o.Nhom === nhom);
-      const base = found || { Ngay: dateISO, Doi: doi, Nhom: nhom, LoaiNgay: 'Thuong' };
-      records.push(derive_(base, findPrev_(map, base), mkOf_(mkMap, base)));
+      const derived = chain.byKey[dateISO + '|' + doi + '|' + nhom];
+      if (derived) { records.push(derived); continue; }
+      const base = { Ngay: dateISO, Doi: doi, Nhom: nhom, LoaiNgay: 'Thuong' };
+      records.push(derive_(base, prevDerived_(chain, doi, nhom, dateISO), mkOf_(mkMap, base)));
     }
   });
   return records;
@@ -382,11 +447,10 @@ function getMonthDays(req) { // data = 'yyyy-MM'
   requirePerm_(s, 'xem', 'Xem');
   const month = req.data;
   if (!/^\d{4}-\d{2}$/.test(String(month || ''))) throw new Error('Tháng không hợp lệ: ' + month);
-  const all = readAll_();
-  const map = prevMap_(all);
-  const mkMap = marksMap_();
-  const records = all.filter(o => o.Ngay.slice(0, 7) === month && (!s.doi || o.Doi === s.doi))
-    .map(o => derive_(o, findPrev_(map, o), mkOf_(mkMap, o)));
+  const chain = deriveChain_(readAll_(), marksMap_());
+  const records = Object.keys(chain.byKey).map(k => chain.byKey[k])
+    .filter(d => d.Ngay.slice(0, 7) === month && (!s.doi || d.Doi === s.doi))
+    .sort((a, b) => (a.Ngay < b.Ngay ? -1 : 1) || (a.Doi - b.Doi) || (a.Nhom - b.Nhom));
   return { ok: true, month, records };
 }
 
@@ -406,21 +470,34 @@ function saveRecord(req) {
   // Phiếu trống (dòng tạo sẵn) coi như chưa nhập; phiếu ĐÃ CÓ số liệu thì cần quyền Sửa
   if (idx >= 0 && existed) requirePerm_(s, 'sua', 'Sửa phiếu đã nhập');
   else requirePerm_(s, 'them', 'Thêm phiếu mới');
+  // MERGE ở server: xuất phát từ bản ghi ĐÃ LƯU, chỉ phủ các trường client thực gửi —
+  // client thiếu trường nào thì giữ nguyên giá trị cũ (chặn tận gốc vụ lưu phiếu làm
+  // mất định biên/số liệu như sự cố 26/10).
+  const existing = idx >= 0 ? all[idx] : null;
+  const merged = {};
+  HEADERS.forEach(h => { merged[h] = existing ? existing[h] : ''; });
+  Object.keys(rec).forEach(k => { if (rec[k] !== undefined && HEADERS.indexOf(k) >= 0) merged[k] = rec[k]; });
+  merged.Ngay = rec.Ngay; merged.Doi = num_(rec.Doi); merged.Nhom = num_(rec.Nhom);
+  // Ngày đã chấm CN ĐỦ PHỦ: Vắng + Nghỉ việc lấy từ bảng chấm CN — KHÔNG ghi 2 ô này
+  // (giao diện đang hiển thị số đã derive; ghi xuống là biến số tính thành dữ liệu gốc).
+  const mkMap0 = marksMap_();
+  const mk0 = mkOf_(mkMap0, merged);
+  if (existing && mk0 && mk0.can > 0 && mk0.tong >= Math.ceil(mk0.can * 0.8)) {
+    merged.Vang = existing.Vang;
+    merged.NghiViecNhap = existing.NghiViecNhap;
+  }
   const rowVals = HEADERS.map(h => {
     if (h === 'CapNhatLuc') return Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm:ss');
     if (h === 'NguoiCapNhat') return s.u;
-    const v = rec[h];
+    const v = merged[h];
     return v === undefined || v === null ? '' : v;
   });
   if (idx >= 0) sh.getRange(idx + 2, 1, 1, HEADERS.length).setValues([rowVals]);
   else sh.appendRow(rowVals);
   ghiLog_(idx >= 0 ? 'SUA' : 'THEM', 'Đội ' + rec.Doi + ' – Nhóm ' + rec.Nhom, 'Ngày ' + rec.Ngay, s.u);
-  // trả lại bản ghi đã tính
-  const all2 = readAll_();
-  const map = prevMap_(all2);
-  const mkMap = marksMap_();
-  const saved = all2.find(o => o.Ngay === rec.Ngay && o.Doi === num_(rec.Doi) && o.Nhom === num_(rec.Nhom));
-  return { ok: true, record: derive_(saved, findPrev_(map, saved), mkOf_(mkMap, saved)) };
+  // trả lại bản ghi đã tính (theo chuỗi bắc cầu)
+  const chain = deriveChain_(readAll_(), marksMap_());
+  return { ok: true, record: chain.byKey[rec.Ngay + '|' + num_(rec.Doi) + '|' + num_(rec.Nhom)] };
 }
 
 /* Xóa hẳn 1 phiếu (chỉ tài khoản có quyền Xóa — mặc định chỉ Admin) */
@@ -564,8 +641,7 @@ function getReport(req) { // data = 'yyyy-MM'
   const cfg = getConfig_();
   const dois = s.doi ? [s.doi] : [1, 2];
   const all = readAll_().filter(o => o.Ngay.slice(0, 7) === month && dois.includes(o.Doi));
-  const map = prevMap_(readAll_());
-  const mkMap = marksMap_();
+  const chain = deriveChain_(readAll_(), marksMap_());
   const groups = [];
   function newPeriods() { return { nua1: emptyStat_(), nua2: emptyStat_(), thang: emptyStat_() }; }
   const doiP = { 1: newPeriods(), 2: newPeriods() };
@@ -574,7 +650,7 @@ function getReport(req) { // data = 'yyyy-MM'
     for (let nhom = 1; nhom <= cfg.SoNhomMoiDoi; nhom++) {
       const p = newPeriods();
       all.filter(o => o.Doi === doi && o.Nhom === nhom).forEach(o => {
-        const d = derive_(o, findPrev_(map, o), mkOf_(mkMap, o));
+        const d = chain.byKey[o.Ngay + '|' + o.Doi + '|' + o.Nhom];
         addToStat_(p, d); addToStat_(doiP[doi], d); addToStat_(compP, d);
       });
       groups.push({ doi, nhom, periods: finishStat_(p) });
@@ -585,39 +661,47 @@ function getReport(req) { // data = 'yyyy-MM'
            company: finishStat_(compP), config: cfg };
 }
 
-/* ---- Báo cáo ngày theo mẫu Zalo 6 mục (đội đang dùng) ---- */
+/* ---- Báo cáo ngày theo MẪU TIN ZALO nhóm thống nhất 26/10/2026 ----
+ * Mẫu: "CAO MỦ NGÀY: ... NHÓM x - ĐỘI y / I. Tình hình cạo mủ / II. Biến động công nhân".
+ * Tổng công cạo trong ngày = Thường + Choàng (đúp KHÔNG cộng vào tổng, theo đúng mẫu).
+ * Số phần viết 2 chữ số (08, 05...); tỷ lệ có mặt = Có mặt / Định biên, 2 số thập phân. */
 function fmtDateVN_(iso) {
   const p = iso.split('-');
   return p[2] + '/' + p[1] + '/' + p[0];
 }
+
+function pad2_(n) { return String(num_(n)).padStart(2, '0'); }
 
 function getDailyReportText(req) {
   const s = auth_(req);
   requirePerm_(s, 'xem', 'Xem');
   const dateISO = req.data;
   checkDay_(dateISO);
-  const cfg = getConfig_();
   const records = getDayRecords_(dateISO, s.doi);
   const blocks = [];
   records.forEach(r => {
-    const has = num_(r.CongThuong) || num_(r.DinhBien) || r.MaPhan;
+    const mapped = !!(r.ChamCN && r.ChamCN.apDung);
+    const has = num_(r.CongThuong) || num_(r.DinhBien) || r.MaPhan || mapped; // nhóm chỉ chấm CN (chưa mở phiếu) vẫn có tin khi chấm đủ phủ
     if (!has) return;
-    const tenDoi = r.Doi === 1 ? cfg.TenDoi1 : cfg.TenDoi2;
+    const congThuongHien = mapped ? r.DiLam : num_(r.CongThuong); // ngày map từ chấm CN: công thường = số CN chấm X
     const lines = [];
-    lines.push('Ngày: ' + fmtDateVN_(dateISO) + ' — ' + tenDoi);
+    lines.push('CAO MỦ NGÀY: ' + fmtDateVN_(dateISO) + ' NHÓM ' + r.Nhom + ' - ĐỘI ' + r.Doi);
     if (r.LoaiNgay === 'Mua') lines.push('🌧 NGÀY MƯA');
     if (r.LoaiNgay === 'Le') lines.push('🎉 NGÀY LỄ');
-    lines.push('1. Nhóm ' + r.Nhom + ': Tổng Công cạo ' + r.CongMuc1 + ' Phần');
-    if (r.MaPhan) lines.push('   ' + r.MaPhan + ' : ' + num_(r.CongThuong) + '/' + (num_(r.TongPhanPhien) || '') );
-    lines.push('2. Phần đứng lô: ' + r.DiLam + ' Công nhân');
-    lines.push('   + Công cạo: ' + num_(r.CongThuong) + ' phần');
-    lines.push('3. Phần vắng: ' + r.SoPhanVang + ' phần : (' + (r.DanhSachVang || '') + ')');
-    lines.push('   Lý do: ' + (r.LyDoVang || ''));
-    lines.push('4. Thiếu: ' + r.SoPhanThieu + ' phần : (' + (r.DanhSachThieu || '') + ')');
-    lines.push('5. Công nhân có mặt: ' + r.CoMat + ' Công nhân');
-    lines.push('6. Cạo không hết cây: ' + (r.CaoKhongHet || ''));
-    if (r.CongTrangBi > 0) lines.push('   Trang bị: ' + r.CongTrangBi + ' công | Thuê: ' + r.CongMuc3 + ' công');
-    if (r.TuyenMoi > 0) lines.push('   Tuyển mới: ' + r.TuyenMoi + ' | Nghỉ việc: ' + r.NghiViec);
+    lines.push('I. Tình hình cạo mủ:');
+    lines.push('1. Cạo thường (đứng lô) : ' + pad2_(congThuongHien) + ' phần' + (r.PhienThuong ? ', phiên ' + r.PhienThuong : '') + '.');
+    lines.push('2. Nhận thêm phần (choàng) : ' + pad2_(r.CongChoang) + ' phần.');
+    lines.push('3. Cạo đúp : ' + pad2_(r.CongDup) + ' phần' + (r.PhienDup ? ', phiên ' + r.PhienDup : '') + '.');
+    lines.push('➡️ Tổng công cạo trong ngày : ' + pad2_(congThuongHien + num_(r.CongChoang)) + ' phần. (thường và nhận thêm phần)');
+    lines.push('II. Biến động công nhân');
+    lines.push('1. Vắng : ' + pad2_(r.SoPhanVang) + ' phần' + (r.DanhSachVang ? ' (phần ' + r.DanhSachVang + ')' : '.'));
+    if (r.LyDoVang) lines.push('Lý do: ' + String(r.LyDoVang).replace(/\.+$/, '') + '.');
+    lines.push('2. Nghỉ việc : ' + pad2_(r.NghiViec) + ' phần' + (r.DanhSachNghiViec ? ' (ghi nhận phần ' + r.DanhSachNghiViec + ')' : '') + '.');
+    if (r.LyDoNghiViec) lines.push('Lý do: ' + String(r.LyDoNghiViec).replace(/\.+$/, '') + '.');
+    lines.push('3. Tuyển mới : ' + pad2_(r.TuyenMoi) + ' phần' + (r.DanhSachTuyenMoi ? ' (phần ' + r.DanhSachTuyenMoi + ')' : '') + '.');
+    lines.push('4. Thiếu nhân công : ' + pad2_(r.SoPhanThieu) + ' phần.');
+    const pct = num_(r.DinhBien) > 0 ? (num_(r.CoMat) / num_(r.DinhBien) * 100).toFixed(2).replace('.', ',') : '0,00';
+    lines.push('👥 Tổng công nhân có mặt : ' + r.CoMat + '/' + num_(r.DinhBien) + ' người, đạt ' + pct + '%.');
     blocks.push(lines.join('\n'));
   });
   return { ok: true, date: dateISO, text: blocks.join('\n\n') || 'Chưa có dữ liệu ngày này.' };
@@ -682,12 +766,25 @@ function importDuLieuTuBangRong(month) {
  * Vắng V / Nghỉ P / Nghỉ hẳn NV + ô ghi chú nghỉ) và THEO THÁNG (lưới CN × ngày, bấm ô
  * để vòng ký hiệu X/V/P/O/NV/L/B). Ghi chú lưu ở cột GhiChu của tab CHAM_CONG_CN.
  * Vắng + Nghỉ việc của phiếu/báo cáo tự đếm từ đây qua marksMap_() + derive_(). */
+/* Mã CN đọc từ Sheet: mã dạng "1-1-2001" là date-like — nếu ô đã bị Sheets tự biến
+ * thành Date thì dựng lại dạng "Doi-Nhom-STT" từ ngày/tháng/năm của Date đó.
+ * Chống tái phát tận gốc: MỌI đường ghi mã CN đều ép định dạng text '@' trước khi ghi
+ * (fmtTextCol_) — hàm này chỉ là lưới an toàn cho dữ liệu cũ. */
+function maCNStr_(v) {
+  if (v instanceof Date) return v.getDate() + '-' + (v.getMonth() + 1) + '-' + v.getFullYear();
+  return String(v || '').trim();
+}
+
+function fmtTextCol_(sh, startRow, col, nRows) {
+  if (sh && nRows > 0) sh.getRange(startRow, col, nRows, 1).setNumberFormat('@');
+}
+
 function roster_() {
   const sh = ss_().getSheetByName(TAB_ROSTER);
   if (!sh || sh.getLastRow() < 2) return [];
   const vals = sh.getRange(2, 1, sh.getLastRow() - 1, ROSTER_HEADERS.length).getValues();
   return vals.map(r => ({
-    MaCN: String(r[0] || '').trim(), Doi: num_(r[1]), Nhom: num_(r[2]), STT: num_(r[3]),
+    MaCN: maCNStr_(r[0]), Doi: num_(r[1]), Nhom: num_(r[2]), STT: num_(r[3]),
     PhanCao: String(r[4] || ''), HoTen: String(r[5] || ''), TenKhmer: String(r[6] || ''),
     DangLam: (r[7] === 1 || r[7] === '1' || r[7] === true) ? 1 : 0
   })).filter(w => w.MaCN);
@@ -717,6 +814,7 @@ function saveWorker(req) { // thêm CN mới (quyền Thêm) hoặc sửa thông
     requirePerm_(s, 'sua', 'Sửa danh sách công nhân');
     const idx = all.findIndex(x => x.MaCN === w.MaCN);
     if (idx < 0) throw new Error('Không thấy công nhân ' + w.MaCN);
+    fmtTextCol_(sh, idx + 2, 1, 1); // ép text TRƯỚC khi ghi mã CN (chống biến thành ngày)
     sh.getRange(idx + 2, 1, 1, ROSTER_HEADERS.length).setValues([[
       w.MaCN, num_(w.Doi), num_(w.Nhom), num_(w.STT) || all[idx].STT,
       String(w.PhanCao || ''), String(w.HoTen || ''), String(w.TenKhmer || ''), all[idx].DangLam
@@ -730,7 +828,9 @@ function saveWorker(req) { // thêm CN mới (quyền Thêm) hoặc sửa thông
   const seq = sameGroup.reduce((m, x) => Math.max(m, num_(String(x.MaCN).split('-')[2]) || 0, x.STT || 0), 0) + 1;
   const ma = num_(w.Doi) + '-' + num_(w.Nhom) + '-' + String(seq).padStart(3, '0');
   const stt = num_(w.STT) || seq;
-  sh.appendRow([ma, num_(w.Doi), num_(w.Nhom), stt, String(w.PhanCao || ''), String(w.HoTen || '').trim(), String(w.TenKhmer || ''), 1]);
+  const rowNum = sh.getLastRow() + 1;
+  fmtTextCol_(sh, rowNum, 1, 1); // ép text TRƯỚC khi ghi mã CN (chống biến thành ngày)
+  sh.getRange(rowNum, 1, 1, ROSTER_HEADERS.length).setValues([[ma, num_(w.Doi), num_(w.Nhom), stt, String(w.PhanCao || ''), String(w.HoTen || '').trim(), String(w.TenKhmer || ''), 1]]);
   ghiLog_('THEM_CN', ma, 'Thêm công nhân ' + w.HoTen + ' (Đội ' + w.Doi + ' – Nhóm ' + w.Nhom + ')', s.u);
   return { ok: true, worker: { MaCN: ma, Doi: num_(w.Doi), Nhom: num_(w.Nhom), STT: stt, PhanCao: String(w.PhanCao || ''), HoTen: String(w.HoTen || '').trim(), TenKhmer: String(w.TenKhmer || ''), DangLam: 1 } };
 }
@@ -764,7 +864,7 @@ function getWorkerMonth(req) { // data = {month:'yyyy-MM', doi, nhom}
     sh.getRange(2, 1, sh.getLastRow() - 1, MARK_HEADERS.length).getValues().forEach(r => {
       const ngay = (r[0] instanceof Date) ? Utilities.formatDate(r[0], TZ, 'yyyy-MM-dd') : String(r[0] || '').slice(0, 10);
       if (ngay.slice(0, 7) !== d.month || num_(r[1]) !== num_(d.doi) || num_(r[2]) !== num_(d.nhom)) return;
-      const ma = String(r[3] || '').trim();
+      const ma = maCNStr_(r[3]);
       if (!ma) return;
       const day = String(Number(ngay.slice(8, 10)));
       const kh = String(r[4] || '').trim().toUpperCase();
@@ -781,7 +881,7 @@ function markRowIndex_(sh, ngay, maCN) {
   const vals = sh.getRange(2, 1, sh.getLastRow() - 1, MARK_HEADERS.length).getValues();
   for (let i = 0; i < vals.length; i++) {
     const n = (vals[i][0] instanceof Date) ? Utilities.formatDate(vals[i][0], TZ, 'yyyy-MM-dd') : String(vals[i][0] || '').slice(0, 10);
-    if (n === ngay && String(vals[i][3] || '').trim() === maCN) return i;
+    if (n === ngay && maCNStr_(vals[i][3]) === maCN) return i;
   }
   return -1;
 }
@@ -807,9 +907,74 @@ function saveWorkerMark(req) { // data = {Ngay, MaCN, KyHieu, GhiChu?} — KyHie
     return { ok: true, cleared: true };
   }
   const nowStr = Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm:ss');
-  if (idx >= 0) sh.getRange(idx + 2, 1, 1, MARK_HEADERS.length).setValues([[d.Ngay, w.Doi, w.Nhom, w.MaCN, kh, nowStr, s.u, note]]);
-  else sh.appendRow([d.Ngay, w.Doi, w.Nhom, w.MaCN, kh, nowStr, s.u, note]);
+  if (idx >= 0) {
+    fmtTextCol_(sh, idx + 2, 4, 1); // ép text cột mã CN trước khi ghi
+    sh.getRange(idx + 2, 1, 1, MARK_HEADERS.length).setValues([[d.Ngay, w.Doi, w.Nhom, w.MaCN, kh, nowStr, s.u, note]]);
+  } else {
+    const rowNum = sh.getLastRow() + 1;
+    fmtTextCol_(sh, rowNum, 4, 1);
+    sh.getRange(rowNum, 1, 1, MARK_HEADERS.length).setValues([[d.Ngay, w.Doi, w.Nhom, w.MaCN, kh, nowStr, s.u, note]]);
+  }
   return { ok: true };
+}
+
+function saveMarksBatch(req) { // data = {items:[{Ngay, MaCN, KyHieu?, GhiChu?}]} — lưu LOẠT thay đổi chấm CN khi bấm nút Lưu (chấm xong chọn hết rồi mới ghi 1 lần)
+  const s = auth_(req);
+  const d = (req && req.data) || {};
+  const items = Array.isArray(d.items) ? d.items : [];
+  if (!items.length) throw new Error('Chưa có thay đổi nào để lưu.');
+  if (items.length > 800) throw new Error('Một lần lưu tối đa 800 thay đổi, hiện có ' + items.length + ' — hãy lưu từng đợt.');
+  const rosterAll = roster_();
+  const wmap = {}, widx = {};
+  rosterAll.forEach((w, i) => { wmap[w.MaCN] = w; widx[w.MaCN] = i; });
+  const sh = getOrCreateSheet_(TAB_MARK, MARK_HEADERS);
+  const exist = {}; // 'Ngay|MaCN' -> {idx (0-based trong vals), kh, note}
+  if (sh.getLastRow() > 1) {
+    sh.getRange(2, 1, sh.getLastRow() - 1, MARK_HEADERS.length).getValues().forEach((r, i) => {
+      const ngay = (r[0] instanceof Date) ? Utilities.formatDate(r[0], TZ, 'yyyy-MM-dd') : String(r[0] || '').slice(0, 10);
+      const ma = maCNStr_(r[3]);
+      if (ngay && ma) exist[ngay + '|' + ma] = { idx: i, kh: String(r[4] || '').trim().toUpperCase(), note: String(r[7] || '').trim() };
+    });
+  }
+  // Kiểm tra hợp lệ + quyền TRƯỚC khi ghi bất cứ dòng nào (1 ô sai quyền = cả loạt không lưu, báo rõ)
+  const prepared = items.map(it => {
+    checkDay_(it.Ngay);
+    const kh = (it.KyHieu === undefined || it.KyHieu === null) ? undefined : String(it.KyHieu).trim().toUpperCase();
+    if (kh !== undefined && kh && !MARKS.includes(kh)) throw new Error('Ký hiệu không hợp lệ: ' + kh);
+    const w = wmap[it.MaCN];
+    if (!w) throw new Error('Không thấy công nhân ' + it.MaCN);
+    scopeCheck_(s, w.Doi);
+    const ex = exist[it.Ngay + '|' + it.MaCN] || null;
+    if (ex) requirePerm_(s, 'sua', 'Sửa ô chấm công đã có');
+    else requirePerm_(s, 'them', 'Chấm công');
+    const note = (it.GhiChu === undefined || it.GhiChu === null) ? (ex ? ex.note : '') : String(it.GhiChu).trim().slice(0, 200);
+    const finalKy = kh !== undefined ? kh : (ex ? ex.kh : '');
+    return { it, w, ex, note, finalKy };
+  });
+  const nowStr = Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm:ss');
+  const appends = [], deleteIdx = [];
+  prepared.forEach(p => {
+    if (!p.finalKy && !p.note) { if (p.ex) deleteIdx.push(p.ex.idx); return; }
+    const row = [p.it.Ngay, p.w.Doi, p.w.Nhom, p.it.MaCN, p.finalKy, nowStr, s.u, p.note];
+    if (p.ex) { fmtTextCol_(sh, p.ex.idx + 2, 4, 1); sh.getRange(p.ex.idx + 2, 1, 1, MARK_HEADERS.length).setValues([row]); }
+    else appends.push(row);
+  });
+  if (appends.length) {
+    const startRow = sh.getLastRow() + 1;
+    fmtTextCol_(sh, startRow, 4, appends.length); // ép text cột mã CN cho cả khối ghi mới
+    sh.getRange(startRow, 1, appends.length, MARK_HEADERS.length).setValues(appends);
+  }
+  deleteIdx.sort((a, b) => b - a).forEach(i => sh.deleteRow(i + 2));
+  // Chấm NV + tài khoản có quyền Sửa -> cho nghỉ hẳn luôn (ẩn khỏi danh sách), giống chấm từng ô trước đây
+  const deactivated = [];
+  if (s.sua) {
+    const rsh = getOrCreateSheet_(TAB_ROSTER, ROSTER_HEADERS);
+    prepared.forEach(p => {
+      if (p.finalKy === 'NV' && num_(p.w.DangLam) !== 0) { rsh.getRange(widx[p.it.MaCN] + 2, 8).setValue(0); deactivated.push(p.it.MaCN); }
+    });
+  }
+  ghiLog_('CHAM_LOAT', 'Chấm CN', 'Lưu ' + prepared.length + ' thay đổi' + (deactivated.length ? ' · cho nghỉ hẳn ' + deactivated.length + ' CN' : ''), s.u);
+  return { ok: true, count: prepared.length, deactivated };
 }
 
 function setDayMarks(req) { // data = {Ngay, Doi, Nhom, mode:'fillX'|'clear'}
@@ -839,7 +1004,11 @@ function setDayMarks(req) { // data = {Ngay, Doi, Nhom, mode:'fillX'|'clear'}
   workers.forEach(w => {
     if (markRowIndex_(sh, d.Ngay, w.MaCN) < 0) rows.push([d.Ngay, w.Doi, w.Nhom, w.MaCN, 'X', nowStr, s.u, '']);
   });
-  if (rows.length) sh.getRange(sh.getLastRow() + 1, 1, rows.length, MARK_HEADERS.length).setValues(rows);
+  if (rows.length) {
+    const startRow = sh.getLastRow() + 1;
+    fmtTextCol_(sh, startRow, 4, rows.length); // ép text cột mã CN cho cả khối ghi mới
+    sh.getRange(startRow, 1, rows.length, MARK_HEADERS.length).setValues(rows);
+  }
   ghiLog_('CHAM_X_NGAY', 'Đội ' + d.Doi + ' – Nhóm ' + d.Nhom, 'Ngày ' + d.Ngay + ': chấm X cho ' + rows.length + ' công nhân', s.u);
   return { ok: true, count: rows.length };
 }
@@ -859,18 +1028,19 @@ function importDanhSachVaChamTuTabKhach() {
   if (markSh.getLastRow() > 1) {
     markSh.getRange(2, 1, markSh.getLastRow() - 1, MARK_HEADERS.length).getValues().forEach(r => {
       const ngay = (r[0] instanceof Date) ? Utilities.formatDate(r[0], TZ, 'yyyy-MM-dd') : String(r[0] || '').slice(0, 10);
-      existMarkKeys[ngay + '|' + String(r[3] || '').trim()] = true;
+      existMarkKeys[ngay + '|' + maCNStr_(r[3])] = true;
     });
   }
   let addedW = 0, addedM = 0;
-  const markRows = [];
+  const markRows = [], rosterRows = [];
   for (let i = 11; i < vals.length; i++) { // dòng 12 trở đi (index 11)
     const stt = num_(vals[i][0]);
     const name = String(vals[i][2] || '').trim();
     if (!stt || !name) continue;
-    const ma = '1-1-' + String(stt).padStart(3, '0');
+    const ma = '1-1-' + String(stt).padStart(3, '0'); // cột A của tab khách chứa 2001..1950 nên mã thật là 1-1-2001..1-1-1950
     if (!existRoster.find(w => w.MaCN === ma)) {
-      rosterSh.appendRow([ma, 1, 1, stt, String(vals[i][1] || '').trim(), name, String(vals[i][3] || '').trim(), 1]);
+      rosterRows.push([ma, 1, 1, stt, String(vals[i][1] || '').trim(), name, String(vals[i][3] || '').trim(), 1]);
+      existRoster.push({ MaCN: ma });
       addedW++;
     }
     for (let d = 1; d <= 31; d++) {
@@ -882,7 +1052,16 @@ function importDanhSachVaChamTuTabKhach() {
       addedM++;
     }
   }
-  if (markRows.length) markSh.getRange(markSh.getLastRow() + 1, 1, markRows.length, MARK_HEADERS.length).setValues(markRows);
+  if (rosterRows.length) {
+    const startRow = rosterSh.getLastRow() + 1;
+    fmtTextCol_(rosterSh, startRow, 1, rosterRows.length); // ép text cột mã CN cho cả khối ghi mới
+    rosterSh.getRange(startRow, 1, rosterRows.length, ROSTER_HEADERS.length).setValues(rosterRows);
+  }
+  if (markRows.length) {
+    const startRow = markSh.getLastRow() + 1;
+    fmtTextCol_(markSh, startRow, 4, markRows.length); // ép text cột mã CN cho cả khối ghi mới
+    markSh.getRange(startRow, 1, markRows.length, MARK_HEADERS.length).setValues(markRows);
+  }
   ghiLog_('IMPORT_CN', 'ChamCongThuong', 'Thêm ' + addedW + ' công nhân, ' + addedM + ' ô chấm T9/2026 (Nhóm 1 Đội 1)');
   try { SpreadsheetApp.getUi().alert('✅ Đã nhập từ tab ChamCongThuong: thêm ' + addedW + ' công nhân, ' + addedM + ' ô chấm tháng 9/2026 cho Nhóm 1 – Đội 1.'); } catch (e) {}
   return { ok: true, addedWorkers: addedW, addedMarks: addedM };
