@@ -391,7 +391,7 @@ function marksMap_() {
     valid[w.MaCN] = true;
     if (w.DangLam) { const k = w.Doi + '|' + w.Nhom; canMap[k] = (canMap[k] || 0) + 1; }
   });
-  const newEntry = (doi, nhom) => ({ x: 0, vang: 0, vangAll: 0, nghi: 0, them: 0, tong: 0, can: canMap[doi + '|' + nhom] || 0 });
+  const newEntry = (doi, nhom) => ({ x: 0, vang: 0, vangAll: 0, nghi: 0, them: 0, l: 0, b: 0, tong: 0, can: canMap[doi + '|' + nhom] || 0 });
   if (sh && sh.getLastRow() >= 2) {
   const vals = sh.getRange(2, 1, sh.getLastRow() - 1, MARK_HEADERS.length).getValues();
   const lastByKey = {}; // 'Ngay|MaCN' -> {doi, nhom, kh}
@@ -409,7 +409,8 @@ function marksMap_() {
     if (it.kh === 'X') m.x++;
     else if (it.kh === 'NV') m.nghi++;
     else if (it.kh === 'V' || it.kh === 'P' || it.kh === 'O') { m.vang++; m.vangAll++; }
-    else if (it.kh === 'L' || it.kh === 'B') m.vangAll++;
+    else if (it.kh === 'L') { m.vangAll++; m.l++; }
+    else if (it.kh === 'B') { m.vangAll++; m.b++; }
   });
   }
   // Đợt 7.3: Tuyển mới lấy theo số người được THÊM ở màn Chấm CN (cột NgayThem của danh sách CN)
@@ -423,6 +424,17 @@ function marksMap_() {
 }
 
 function mkOf_(map, o) { return map[o.Ngay + '|' + o.Doi + '|' + o.Nhom] || null; }
+
+/* Đợt 7.4: loại ngày SUY từ chấm CN của 1 ngày/nhóm — cả nhóm chấm B -> 'Mua', cả nhóm
+ * chấm L -> 'Le', không có B/L nào -> 'Thuong'; lẫn lộn B+L hoặc chưa chấm -> null (giữ nguyên).
+ * Chỉ áp dụng khi ngày đó chấm đủ phủ (>= 80% CN đang làm) — xem chỗ gọi. */
+function loaiNgayTarget_(mk) {
+  if (!mk || !mk.tong) return null;
+  if (mk.b > 0 && mk.b === mk.tong) return 'Mua';
+  if (mk.l > 0 && mk.l === mk.tong) return 'Le';
+  if (!mk.b && !mk.l) return 'Thuong';
+  return null;
+}
 
 /* ================== API CHO GIAO DIỆN ==================
  * Mọi hàm đều nhận req = { data, auth:{u,p} } và trả dữ liệu đã LỌC theo quyền:
@@ -458,6 +470,12 @@ function getDayRecords_(dateISO, scopeDoi) {
       const derived = chain.byKey[dateISO + '|' + doi + '|' + nhom];
       if (derived) { records.push(derived); continue; }
       const base = { Ngay: dateISO, Doi: doi, Nhom: nhom, LoaiNgay: 'Thuong' };
+      // Đợt 7.4: phiếu chưa có sẵn -> loại ngày tự theo chấm CN (cả nhóm B/L và chấm đủ phủ)
+      const bmk = mkOf_(mkMap, base);
+      if (bmk && bmk.can > 0 && bmk.tong >= Math.ceil(bmk.can * 0.8)) {
+        const t = loaiNgayTarget_(bmk);
+        if (t) base.LoaiNgay = t;
+      }
       records.push(derive_(base, prevDerived_(chain, doi, nhom, dateISO), mkOf_(mkMap, base)));
     }
   });
@@ -898,7 +916,18 @@ function getWorkerMonth(req) { // data = {month:'yyyy-MM', doi, nhom}
       if (note) (notes[ma] = notes[ma] || {})[day] = note;
     });
   }
-  return { ok: true, workers, marks, notes };
+  const loaiNgay = {}; // 'd' -> LoaiNgay của phiếu đã lưu (để màn Chấm CN hiện đúng loại ngày khi ngày chưa chấm)
+  const dsh = ss_().getSheetByName(TAB_DATA);
+  if (dsh && dsh.getLastRow() > 1) {
+    const dh = dsh.getRange(1, 1, 1, dsh.getLastColumn()).getValues()[0];
+    const iN = dh.indexOf('Ngay'), iD = dh.indexOf('Doi'), iNh = dh.indexOf('Nhom'), iL = dh.indexOf('LoaiNgay');
+    if (iN >= 0 && iL >= 0) dsh.getRange(2, 1, dsh.getLastRow() - 1, dsh.getLastColumn()).getValues().forEach(r => {
+      const ngay = (r[iN] instanceof Date) ? Utilities.formatDate(r[iN], TZ, 'yyyy-MM-dd') : String(r[iN] || '').slice(0, 10);
+      if (ngay.slice(0, 7) !== d.month || num_(r[iD]) !== num_(d.doi) || num_(r[iNh]) !== num_(d.nhom)) return;
+      loaiNgay[String(Number(ngay.slice(8, 10)))] = String(r[iL] || 'Thuong');
+    });
+  }
+  return { ok: true, workers, marks, notes, loaiNgay };
 }
 
 function markRowIndex_(sh, ngay, maCN) {
@@ -999,7 +1028,39 @@ function saveMarksBatch(req) { // data = {items:[{Ngay, MaCN, KyHieu?, GhiChu?}]
     });
   }
   ghiLog_('CHAM_LOAT', 'Chấm CN', 'Lưu ' + prepared.length + ' thay đổi' + (deactivated.length ? ' · cho nghỉ hẳn ' + deactivated.length + ' CN' : ''), s.u);
-  return { ok: true, count: prepared.length, deactivated };
+  // Đợt 7.4: chấm CN đủ phủ + đồng loạt B (hoặc L) -> phiếu ngày đó tự chọn loại ngày
+  // Mưa (hoặc Lễ/Tết) trong Sheet nhập công, đội không phải chọn lại trên phiếu.
+  let loaiNgayChanged = 0;
+  const affected = {};
+  prepared.forEach(p => { affected[p.it.Ngay + '|' + p.w.Doi + '|' + p.w.Nhom] = { ngay: p.it.Ngay, doi: p.w.Doi, nhom: p.w.Nhom }; });
+  const freshMap = marksMap_();
+  const dsh = ss_().getSheetByName(TAB_DATA);
+  if (dsh && dsh.getLastRow() > 1) {
+    const dh = dsh.getRange(1, 1, 1, dsh.getLastColumn()).getValues()[0];
+    const iN = dh.indexOf('Ngay'), iD = dh.indexOf('Doi'), iNh = dh.indexOf('Nhom'), iL = dh.indexOf('LoaiNgay');
+    if (iN >= 0 && iL >= 0) {
+      const dvals = dsh.getRange(2, 1, dsh.getLastRow() - 1, dsh.getLastColumn()).getValues();
+      Object.keys(affected).forEach(k => {
+        const a = affected[k];
+        const mk = freshMap[k];
+        if (!mk || !mk.can || mk.tong < Math.ceil(mk.can * 0.8)) return;
+        const target = loaiNgayTarget_(mk);
+        if (!target) return;
+        for (let i = 0; i < dvals.length; i++) {
+          const ngay = (dvals[i][iN] instanceof Date) ? Utilities.formatDate(dvals[i][iN], TZ, 'yyyy-MM-dd') : String(dvals[i][iN] || '').slice(0, 10);
+          if (ngay === a.ngay && num_(dvals[i][iD]) === a.doi && num_(dvals[i][iNh]) === a.nhom) {
+            if (String(dvals[i][iL] || 'Thuong') !== target) {
+              dsh.getRange(i + 2, iL + 1).setValue(target);
+              ghiLog_('TU_DONG_LOAI_NGAY', a.ngay, 'Phiếu Đội ' + a.doi + ' – Nhóm ' + a.nhom + ' ngày ' + a.ngay + ': loại ngày tự chọn ' + target + ' theo chấm CN', s.u);
+              loaiNgayChanged++;
+            }
+            break;
+          }
+        }
+      });
+    }
+  }
+  return { ok: true, count: prepared.length, deactivated, loaiNgayChanged };
 }
 
 function setDayMarks(req) { // data = {Ngay, Doi, Nhom, mode:'fillX'|'clear'}

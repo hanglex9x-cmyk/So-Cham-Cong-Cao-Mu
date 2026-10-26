@@ -413,9 +413,14 @@ button.wkview-on{background:var(--accent);color:#fff;border-color:var(--accent)}
       </div>
       <div class="row" style="margin:8px 0 10px;flex-wrap:wrap">
         <button class="qbtn grow" id="btnFillX"><svg class="ic" aria-hidden="true"><use href="#i-check"></use></svg> Chấm đi làm tất cả (ô trống)</button>
-        <button class="qbtn grow" id="btnRainAll"><svg class="ic" aria-hidden="true"><use href="#i-rain"></use></svg> Cả đội nghỉ mưa</button>
-        <button class="qbtn grow" id="btnHolidayAll"><svg class="ic" aria-hidden="true"><use href="#i-spark"></use></svg> Cả đội nghỉ Lễ/tết</button>
         <button class="qbtn grow" id="btnClearDay"><svg class="ic" aria-hidden="true"><use href="#i-x"></use></svg> Xóa chấm ngày</button>
+      </div>
+      <div class="row" style="margin:8px 0 10px">
+        <div class="seg grow" id="wkLoaiSeg" title="Loại ngày: chọn Mưa = cả nhóm chấm B, Lễ/Tết = cả nhóm chấm L, Thường = cả nhóm chấm X">
+          <button type="button" data-v="Thuong"><svg class="ic" aria-hidden="true"><use href="#i-sun"></use></svg> Thường</button>
+          <button type="button" data-v="Mua"><svg class="ic" aria-hidden="true"><use href="#i-rain"></use></svg> Mưa</button>
+          <button type="button" data-v="Le"><svg class="ic" aria-hidden="true"><use href="#i-spark"></use></svg> Lễ / Tết</button>
+        </div>
       </div>
       <div id="wkDayView">
         <label class="lbl">Ngày chấm</label>
@@ -1355,7 +1360,7 @@ $('loginPin').addEventListener('keydown', e=>{ if(e.key==='Enter') $('btnLogin')
 $('btnLogout').addEventListener('click', ()=>{ setAuth(null); location.reload(); });
 
 /* ================== CHẤM CÔNG TỪNG CÔNG NHÂN ================== */
-let wkWorkers = [], wkMarks = {}, wkNotes = {}, wkSelDay = 1, wkView = 'day';
+let wkWorkers = [], wkMarks = {}, wkNotes = {}, wkLoaiMap = {}, wkSelDay = 1, wkView = 'day';
 const MARK_CYCLE = ['', 'X', 'P', 'O', 'B', 'L', 'NV'];
 const MARK_LBL = {X:'Đi làm', V:'Vắng', P:'Nghỉ', O:'Ốm', NV:'Nghỉ hẳn', L:'Lễ', B:'Mưa bão'};
 /* Thay đổi chấm CN chưa bấm Lưu: key 'YYYY-MM-DD|MaCN' -> {Ngay, MaCN, KyHieu?, GhiChu?} */
@@ -1390,8 +1395,8 @@ async function loadWorkers(){
   const m = $('wMonth').value || curMonth;
   try{
     const res = await call('getWorkerMonth', {month: m, doi, nhom});
-    wkWorkers = res.workers || []; wkMarks = res.marks || {}; wkNotes = res.notes || {};
-  }catch(e){ toast('Lỗi: '+e.message); wkWorkers = []; wkMarks = {}; wkNotes = {}; }
+    wkWorkers = res.workers || []; wkMarks = res.marks || {}; wkNotes = res.notes || {}; wkLoaiMap = res.loaiNgay || {};
+  }catch(e){ toast('Lỗi: '+e.message); wkWorkers = []; wkMarks = {}; wkNotes = {}; wkLoaiMap = {}; }
   const dim = new Date(Number(m.slice(0,4)), Number(m.slice(5,7)), 0).getDate();
   if(wkSelDay > dim) wkSelDay = dim;
   renderWk(doi, nhom, m);
@@ -1415,6 +1420,7 @@ function renderWkDay(doi, nhom, m){
   const [y, mo] = m.split('-').map(Number);
   const ds = String(wkSelDay);
   const c = wkDayCounts(wkSelDay, m);
+  wkSyncSeg(m);
   const vang = c.V + c.P + c.O + c.L + c.B;
   const active = wkWorkers.filter(w=>w.DangLam).length;
   $('wkDaySummary').textContent = 'Ngày '+ wkSelDay + '/'+ mo + '/'+ y + '— Đi làm: '+ c.X + '· Vắng: '+ vang + '(vắng '+ c.V + '· nghỉ '+ c.P + '· ốm '+ c.O + ') · Nghỉ hẳn: '+ c.NV + '· Chưa chấm: '+ Math.max(0, active - c.X - vang - c.NV) + '/ '+ active + 'CN đang làm. Chạm vào trạng thái để chấm (chạm lại để bỏ); chọn xong bấm  Lưu chấm công mới ghi vào Sheet; ô ghi chú mở khi công nhân vắng/nghỉ.';
@@ -1538,15 +1544,32 @@ function wkSetAllDay(mark, label){
   toast('Đã chọn '+ label + ' cho '+ list.length + ' công nhân ngày '+ wkSelDay + ' — bấm Lưu chấm công để ghi vào Sheet.');
   renderWk(doi, nhom, m);
 }
-$('btnRainAll').addEventListener('click', ()=>wkSetAllDay('B', 'nghỉ mưa bão (B)'));
-$('btnHolidayAll').addEventListener('click', ()=>wkSetAllDay('L', 'nghỉ Lễ/tết (L)'));
+document.querySelectorAll('#wkLoaiSeg button').forEach(b=>b.addEventListener('click', ()=>{
+  const v = b.dataset.v;
+  if(v === 'Mua') wkSetAllDay('B', 'nghỉ mưa bão (B)');
+  else if(v === 'Le') wkSetAllDay('L', 'nghỉ Lễ/tết (L)');
+  else wkSetAllDay('X', 'đi làm (X)');
+}));
+function wkSegState(m){
+  const act = wkWorkers.filter(w=>w.DangLam);
+  if(!act.length) return 'Thuong';
+  const ms = act.map(w=>wkEffMark(w.MaCN, wkSelDay, m));
+  if(ms.every(x=>x === 'B')) return 'Mua';
+  if(ms.every(x=>x === 'L')) return 'Le';
+  if(ms.every(x=>!x)) { const ln = wkLoaiMap[String(wkSelDay)]; if(ln === 'Mua' || ln === 'Le') return ln; }
+  return 'Thuong';
+}
+function wkSyncSeg(m){
+  const st = wkSegState(m);
+  document.querySelectorAll('#wkLoaiSeg button').forEach(b=>b.classList.toggle('active', b.dataset.v === st));
+}
 $('btnSaveWk').addEventListener('click', async ()=>{
   const items = Object.values(wkPending);
   if(!items.length){ toast('Chưa có thay đổi nào để lưu.'); return; }
   try{
     const r = await call('saveMarksBatch', {items});
     wkPending = {}; updateSaveWkBtn();
-    toast('Đã lưu '+ (r.count || items.length) + 'thay đổi chấm công vào Sheet.'+ ((r.deactivated && r.deactivated.length) ? 'Đã cho nghỉ hẳn '+ r.deactivated.length + 'công nhân (chấm NV).': ''));
+    toast('Đã lưu '+ (r.count || items.length) + 'thay đổi chấm công vào Sheet.'+ ((r.deactivated && r.deactivated.length) ? 'Đã cho nghỉ hẳn '+ r.deactivated.length + 'công nhân (chấm NV).': '') + (r.loaiNgayChanged ? 'Đã tự chọn loại ngày cho '+ r.loaiNgayChanged + 'phiếu theo chấm CN.': ''));
     loadWorkers();
   }catch(e){ toast('Lỗi lưu chấm công: '+ e.message); }
 });
