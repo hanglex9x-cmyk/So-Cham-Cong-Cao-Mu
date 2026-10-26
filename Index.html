@@ -622,934 +622,992 @@ function demoMonth(month){
   return {ok:true, month, records:recs};
 }
 
-let AUTH = null;
-try{ const a = sessionStorage.getItem('hh_auth'); if(a) AUTH = JSON.parse(a); }catch(e){}
-let SESSION = null;
-function setAuth(a){ AUTH = a; try{ if(a) sessionStorage.setItem('hh_auth', JSON.stringify(a)); else sessionStorage.removeItem('hh_auth'); }catch(e){} }
+let SESSION = null, AUTH = [];
+function setAuth(acc){
+  SESSION = acc;
+  document.cookie = acc ? ('hh_sess=' + encodeURIComponent(acc.u) + '; path=/') : 'hh_sess=; Max-Age=0; path=/';
+}
 function call(fn, arg){
-  return new Promise((resolve, reject)=>{
-    if(!HAS_GAS){
-      try{
-        if(fn==='getBootstrap') return resolve({ok:true, needLogin:false, config:CFG, session:{u:'(bản nháp)', name:'Quản trị (bản nháp)', doi:0, xem:1, them:1, sua:1, xoa:1, qt:1, open:true}, today:'2026-10-24'});
-        if(fn==='getDay') return resolve(demoDay(arg));
-        if(fn==='getMonthDays') return resolve(demoMonth(arg));
-        if(fn==='saveRecord'){
-          const i = DEMO.findIndex(o=>o.Ngay===arg.Ngay&&o.Doi===num(arg.Doi)&&o.Nhom===num(arg.Nhom));
-          const rec = Object.assign({}, arg, {Doi:num(arg.Doi), Nhom:num(arg.Nhom)});
-          if(i>=0) DEMO[i]=rec; else DEMO.push(rec);
-          return resolve({ok:true, record:derive(rec, prevOf(DEMO, rec))});
-        }
-        if(fn==='copyYesterday'){
-          const d = new Date(arg+'T00:00:00'); d.setDate(d.getDate()-1);
-          const prevISO = d.toISOString().slice(0,10);
-          const src = DEMO.filter(o=>o.Ngay===prevISO);
-          if(!src.length) return reject(new Error('Hôm qua ('+prevISO+') chưa có dữ liệu để sao chép.'));
-          let c=0; src.forEach(o=>{ if(!DEMO.find(x=>x.Ngay===arg&&x.Doi===o.Doi&&x.Nhom===o.Nhom)){ DEMO.push(Object.assign({},o,{Ngay:arg})); c++; }});
-          return resolve({ok:true, count:c, from:prevISO});
-        }
-        if(fn==='importRecords'){
-          let a=0,u=0,s=0;
-          (arg||[]).forEach(rec=>{
-            if(!rec || !/^\d{4}-\d{2}-\d{2}$/.test(String(rec.Ngay||''))){ s++; return; }
-            const i = DEMO.findIndex(o=>o.Ngay===rec.Ngay&&o.Doi===num(rec.Doi)&&o.Nhom===num(rec.Nhom));
-            const r = Object.assign({}, rec, {Doi:num(rec.Doi), Nhom:num(rec.Nhom)});
-            if(i>=0){ DEMO[i]=r; u++; } else { DEMO.push(r); a++; }
+  return new Promise((res, rej)=>{
+    if(HAS_GAS){
+      google.script.run.withSuccessHandler(res).withFailureHandler(e=>rej(new Error(e&&e.message?e.message:String(e))))[fn](arg);
+    } else {
+      // DEMO — chạy offline, không cần máy chủ.
+      try {
+        if(fn==='getBootstrap'){
+          seedDemo();
+          const need = localStorage.getItem('hh_demo_login');
+          if(need){
+            res({config:CFG, accounts:[{u:'admin',n:'Quản trị viên',doi:'',xem:1,them:1,sua:1,xoa:1,qt:1},{u:'doi1',n:'Đội 1',doi:'1',xem:1,them:1,sua:0,xoa:0,qt:0},{u:'doi2',n:'Đội 2',doi:'2',xem:1,them:1,sua:0,xoa:0,qt:0}], needLogin:true});
+          } else {
+            res({config:CFG, accounts:[], needLogin:false});
+          }
+        } else if(fn==='getDay'){ res(demoDay(arg.date)); }
+        else if(fn==='getMonthDays'){ res(demoMonth(arg.month)); }
+        else if(fn==='saveRecord'){
+          const rec = arg; const i = DEMO.findIndex(o=>o.Ngay===rec.Ngay&&o.Doi===rec.Doi&&o.Nhom===rec.Nhom);
+          if(i>=0) DEMO[i] = Object.assign({}, DEMO[i], rec); else DEMO.push(Object.assign({}, rec));
+          res({ok:true});
+        } else if(fn==='copyYesterday'){ res({ok:true}); }
+        else if(fn==='importRecords'){ res({ok:true, imported:0}); }
+        else if(fn==='saveConfig'){ CFG = Object.assign(CFG, arg); res({ok:true}); }
+        else if(fn==='deleteRecord'){ DEMO = DEMO.filter(o=>!(o.Ngay===arg.date&&o.Doi===arg.doi&&o.Nhom===arg.nhom)); res({ok:true}); }
+        else if(fn==='getAccounts'){ res({ok:true, accounts:[{u:'admin',n:'Quản trị viên',doi:'',xem:1,them:1,sua:1,xoa:1,qt:1},{u:'doi1',n:'Đội 1',doi:'1',xem:1,them:1,sua:0,xoa:0,qt:0},{u:'doi2',n:'Đội 2',doi:'2',xem:1,them:1,sua:0,xoa:0,qt:0}]}); }
+        else if(fn==='saveAccounts'){ res({ok:true}); }
+        else if(fn==='getWorkers'){ res({ok:true, workers:DEMO_W.filter(w=>w.Doi===arg.doi&&w.Nhom===arg.nhom)}); }
+        else if(fn==='getWorkerMonth'){
+          const wk = DEMO_W.filter(w=>w.Doi===arg.doi&&w.Nhom===arg.nhom);
+          const out = {ok:true, workers:wk, marks:{}, notes:{}};
+          wk.forEach(w=>{
+            Object.keys(DEMO_M).forEach(k=>{
+              const [d,ma] = k.split('|');
+              if(ma===w.MaCN && d.slice(0,7)===arg.month) out.marks[k] = DEMO_M[k];
+            });
+            Object.keys(DEMO_N).forEach(k=>{
+              const [d,ma] = k.split('|');
+              if(ma===w.MaCN && d.slice(0,7)===arg.month) out.notes[k] = DEMO_N[k];
+            });
           });
-          return resolve({ok:true, added:a, updated:u, skipped:s});
-        }
-        if(fn==='saveConfig'){ CFG = Object.assign({}, CFG, arg); return resolve({ok:true, config:CFG}); }
-        if(fn==='deleteRecord'){
-          const i = DEMO.findIndex(o=>o.Ngay===arg.Ngay&&o.Doi===num(arg.Doi)&&o.Nhom===num(arg.Nhom));
-          if(i>=0) DEMO.splice(i,1);
-          return resolve({ok:true});
-        }
-        if(fn==='getAccounts') return resolve({ok:true, accounts:[{u:'admin',p:'1234@',name:'Quản trị viên',doi:0,xem:1,them:1,sua:1,xoa:1,qt:1},{u:'doi1',p:'1234@',name:'Đội 1',doi:1,xem:1,them:1,sua:0,xoa:0,qt:0},{u:'doi2',p:'1234@',name:'Đội 2',doi:2,xem:1,them:1,sua:0,xoa:0,qt:0}]});
-        if(fn==='saveAccounts') return resolve({ok:true, accounts:arg});
-        if(fn==='getWorkers') return resolve({ok:true, workers: DEMO_W.filter(w=>w.Doi===num(arg.doi)&&w.Nhom===num(arg.nhom))});
-        if(fn==='getWorkerMonth'){
-          const ws = DEMO_W.filter(w=>w.Doi===num(arg.doi)&&w.Nhom===num(arg.nhom));
-          const mk = {}, nt = {};
-          Object.keys(DEMO_M).forEach(k=>{ const p = k.split('|'); if(p[0].slice(0,7)===arg.month){ (mk[p[1]] = mk[p[1]] || {})[String(num(p[0].slice(8,10)))] = DEMO_M[k]; } });
-          Object.keys(DEMO_N).forEach(k=>{ const p = k.split('|'); if(p[0].slice(0,7)===arg.month){ (nt[p[1]] = nt[p[1]] || {})[String(num(p[0].slice(8,10)))] = DEMO_N[k]; } });
-          return resolve({ok:true, workers: ws, marks: mk, notes: nt});
+          const nt = {};
+          Object.keys(out.notes||{}).forEach(k=>nt[k]=out.notes[k]);
+          out.notes = nt;
+          res(out);
         }
 
-        if(fn==='saveWorker'){
-          if(arg.MaCN){ const w = DEMO_W.find(x=>x.MaCN===arg.MaCN); if(w){ w.HoTen=arg.HoTen; w.PhanCao=arg.PhanCao; w.TenKhmer=arg.TenKhmer; } return resolve({ok:true, worker:w}); }
-          const seq = DEMO_W.filter(x=>x.Doi===num(arg.Doi)&&x.Nhom===num(arg.Nhom)).length + 1;
-          const w = {MaCN: arg.Doi+'-'+arg.Nhom+'-'+String(seq).padStart(3,'0'), Doi:num(arg.Doi), Nhom:num(arg.Nhom), STT:seq, PhanCao:arg.PhanCao||'', HoTen:arg.HoTen||'', TenKhmer:arg.TenKhmer||'', DangLam:1};
-          DEMO_W.push(w);
-          return resolve({ok:true, worker:w});
-        }
-        if(fn==='setWorkerActive'){ const w = DEMO_W.find(x=>x.MaCN===arg.MaCN); if(w) w.DangLam = arg.active?1:0; return resolve({ok:true}); }
-        if(fn==='saveWorkerMark'){ const k = arg.Ngay+'|'+arg.MaCN; if(arg.KyHieu) DEMO_M[k]=arg.KyHieu; else delete DEMO_M[k]; if(arg.GhiChu !== undefined){ if(arg.GhiChu) DEMO_N[k]=arg.GhiChu; else delete DEMO_N[k]; } return resolve({ok:true}); }
-        if(fn==='setDayMarks'){
-          const ws = DEMO_W.filter(w=>w.Doi===num(arg.Doi)&&w.Nhom===num(arg.Nhom)&&w.DangLam);
-          let n = 0;
-          if(arg.mode==='clear'){ ws.forEach(w=>{ const k = arg.Ngay+'|'+w.MaCN; if(DEMO_M[k]){ delete DEMO_M[k]; n++; } }); }
-          else { ws.forEach(w=>{ const k = arg.Ngay+'|'+w.MaCN; if(!DEMO_M[k]){ DEMO_M[k]='X'; n++; } }); }
-          return resolve({ok:true, count:n});
-        }
-        if(fn==='getReport') return resolve(demoReport(arg));
-        resolve({ok:true});
-      }catch(e){ reject(e); }
-      return;
+        else if(fn==='saveWorker'){
+          const w = arg;
+          const i = DEMO_W.findIndex(x=>x.MaCN===w.MaCN);
+          if(i>=0) DEMO_W[i] = Object.assign({}, DEMO_W[i], w); else DEMO_W.push(Object.assign({}, w));
+          res({ok:true});
+        } else if(fn==='setWorkerActive'){
+          const w = DEMO_W.find(x=>x.MaCN===arg.maCN);
+          if(w) w.DangLam = arg.active?1:0;
+          res({ok:true});
+        } else if(fn==='saveWorkerMark'){
+          const key = arg.ngay + '|' + arg.maCN;
+          if(arg.kyHieu) DEMO_M[key] = arg.kyHieu; else delete DEMO_M[key];
+          if(arg.ghiChu) DEMO_N[key] = arg.ghiChu; else delete DEMO_N[key];
+          res({ok:true});
+        } else if(fn==='setDayMarks'){
+          const wk = DEMO_W.filter(w=>w.Doi===arg.doi&&w.Nhom===arg.nhom);
+          wk.forEach(w=>{
+            const key = arg.ngay + '|' + w.MaCN;
+            if(arg.mode==='fillX'){ if(!DEMO_M[key]) DEMO_M[key]='X'; }
+            else if(arg.mode==='clear'){ delete DEMO_M[key]; delete DEMO_N[key]; }
+          });
+          res({ok:true});
+        } else if(fn==='getReport'){ res(demoReport(arg)); }
+        else { res({ok:false, error:'Chưa hỗ trợ chế độ nháp: '+fn}); }
+      } catch(e){ rej(e); }
     }
-    const runner = google.script.run.withSuccessHandler(resolve).withFailureHandler(e=>{
-      const msg = (e && e.message) || String(e);
-      if(msg==='NEED_LOGIN' && fn!=='getBootstrap'){ showLogin(); }
-      reject(new Error(msg));
-    });
-    runner[fn]({data: arg, auth: AUTH || {}});
   });
 }
-function demoReport(month){
-  const all = DEMO.filter(o=>o.Ngay.slice(0,7)===month);
-  const groups=[];
-  const mk=()=>({nua1:emptyS(),nua2:emptyS(),thang:emptyS()});
-  const doiP={1:mk(),2:mk()}, comp=mk();
-  function emptyS(){ return {ngay:{thuong:0,dup:0,choang:0,trangBi:0,thue:0,mua:0,le:0},cong:{thuong:0,dup:0,choang:0,trangBi:0,thue:0,mua:0,le:0},phaiCao:0,soNgayDaNhap:0,tuyenMoi:0,nghiViec:0,vang:0,khongDuoc:0}; }
-  function add(P,d){
-    const per = Number(d.Ngay.slice(8,10))<=15?'nua1':'nua2';
-    [P[per],P.thang].forEach(s=>{
-      s.soNgayDaNhap++; s.phaiCao+=num(d.DinhBien);
-      if(d.LoaiNgay==='Mua'){s.ngay.mua++; s.cong.mua+=d.CongMuc1+d.CongTrangBi+d.CongMuc3;}
-      else if(d.LoaiNgay==='Le'){s.ngay.le++; s.cong.le+=d.CongMuc1+d.CongTrangBi+d.CongMuc3;}
-      else{ if(num(d.CongThuong)>0)s.ngay.thuong++; if(num(d.CongDup)>0)s.ngay.dup++; if(num(d.CongChoang)>0)s.ngay.choang++; if(d.CongTrangBi>0)s.ngay.trangBi++; if(d.CongMuc3>0)s.ngay.thue++; }
-      s.cong.thuong+=num(d.CongThuong); s.cong.dup+=num(d.CongDup); s.cong.choang+=num(d.CongChoang); s.cong.trangBi+=d.CongTrangBi; s.cong.thue+=d.CongMuc3;
-      s.tuyenMoi+=d.TuyenMoi; s.nghiViec+=d.NghiViec; s.vang+=d.Vang;
-    });
-  }
-  function fin(P){ ['nua1','nua2','thang'].forEach(k=>{ P[k].khongDuoc = P[k].phaiCao-(P[k].cong.thuong+P[k].cong.dup+P[k].cong.choang); }); return P; }
-  for(let doi=1;doi<=2;doi++) for(let nhom=1;nhom<=CFG.SoNhomMoiDoi;nhom++){
-    const p=mk();
-    all.filter(o=>o.Doi===doi&&o.Nhom===nhom).forEach(o=>{ const d=derive(o,prevOf(DEMO,o)); add(p,d); add(doiP[doi],d); add(comp,d); });
-    groups.push({doi,nhom,periods:fin(p)});
-  }
-  return {ok:true, month, groups, doi:{1:fin(doiP[1]),2:fin(doiP[2])}, company:fin(comp), config:CFG};
+
+function demoReport(arg){
+  const m = demoMonth(arg.month);
+  return {ok:true, month:arg.month, records:m.records};
 }
 
 /* ================== GIAO DIỆN ================== */
-function $(id){ return document.getElementById(id); }
-function fmt(n){ return Number(n||0).toLocaleString('vi-VN'); }
-function fmtDateVN(iso){ if(!iso) return ''; const p=String(iso).split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
-function isoOf(d){ return d.toISOString().slice(0,10); }
-function toast(msg, ms){
-  const t=$('toast'); t.textContent=msg; t.classList.add('on');
-  clearTimeout(t._tm); t._tm=setTimeout(()=>t.classList.remove('on'), ms||2200);
+const $ = id => document.getElementById(id);
+const fmt = v => (v===null||v===undefined||v==='') ? '–' : v;
+const fmtDateVN = iso => { if(!iso) return ''; const [y,m,d] = iso.split('-'); return d+'/'+m+'/'+y; };
+const isoOf = (y,m,d) => y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+let toastT = null;
+function toast(msg){
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(()=>t.classList.remove('show'), 2600);
 }
-function tenDoi(d){ return d==1?CFG.TenDoi1:(d==2?CFG.TenDoi2:'Tất cả các đội'); }
-function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-let scr='entry', dayISO='2026-10-24', monthISO='2026-10';
-let curDoi=1, curNhom=1, recs={}, dayList=[];
-let curRec=null, prevRec=null;
-let stripCache={};
-function go(id, el){
-  scr=id;
-  document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on', s.id==='scr-'+id));
-  document.querySelectorAll('[data-nav]').forEach(b=>b.classList.toggle('on', b.dataset.nav===id));
-  if(el) el.classList.add('on');
-  if(id==='entry') loadEntryScreen();
-  if(id==='daily') loadDaily();
-  if(id==='report') loadReport();
-  if(id==='team') loadTeam();
-  if(id==='workers') loadWorkers();
-  if(id==='settings') applyConfig();
+const tenDoi = d => d==1 ? CFG.TenDoi1 : d==2 ? CFG.TenDoi2 : 'Cả 2 đội';
+
+let curScreen='entry', curDoi=1, curNhom=1, curDate='', curMonth='', curPeriod='thang', repDoi=0;
+let dayRecs=[], monthRecs=[], dirty=false, filling=false;
+let curRec=null;
+
+function go(scr){
+  curScreen = scr;
+  document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active', s.id==='scr-'+scr));
+  document.querySelectorAll('[data-nav]').forEach(b=>b.classList.toggle('active', b.dataset.nav===scr));
+  if(scr==='entry') loadEntryScreen();
+  if(scr==='daily') loadDaily();
+  if(scr==='report') loadReport();
+  if(scr==='team') loadTeam();
+  if(scr==='workers') loadWorkers();
+  if(scr==='settings') loadPQ();
+  window.scrollTo(0,0);
 }
-document.querySelectorAll('[data-nav]').forEach(b=>b.addEventListener('click', ()=>go(b.dataset.nav, b)));
+document.querySelectorAll('[data-nav]').forEach(b=>b.onclick=()=>go(b.dataset.nav));
 
 /* ================== NHẬP CÔNG ================== */
-const FIELDS = ['MaPhan','TongPhanPhien','PhienThuong','CongThuong','PhienDup','CongDup','PhienChoang','CongChoang','DinhBien','Vang','TuyenMoiNhap','NghiViecNhap','DanhSachVang','LyDoVang','DanhSachThieu','CaoKhongHet','GhiChu'].concat(TB_KEYS);
+const FIELDS = ['DinhBien','MaPhan','TongPhanPhien','PhienThuong','CongThuong','PhienDup','CongDup','PhienChoang','CongChoang','ThueCao','ThueBocMu','Vang','TuyenMoiNhap','NghiViecNhap','DanhSachVang','LyDoVang','DanhSachThieu','CaoKhongHet','GhiChu'].concat(TB_KEYS);
+
 function buildTrangBiRows(){
-  const tb = $('trangBiRows');
-  tb.innerHTML = TB_KEYS.map(k=>`<tr><td>${TB_NAMES[k]}</td><td><input type="number" class="inpn" id="f_${k}" placeholder="0" inputmode="numeric"></td></tr>`).join('');
-}
-function loadEntryScreen(){
-  $('eMonth').value = monthISO;
-  const es = $('eDoiSel'); es.innerHTML = `<option value="1">${esc(CFG.TenDoi1)}</option><option value="2">${esc(CFG.TenDoi2)}</option>`;
-  es.value = curDoi; es.disabled = !!(SESSION && SESSION.doi);
-  buildDoiList();
-  $('eCtx').textContent = `Ngày ${fmtDateVN(dayISO)} · ${tenDoi(curDoi)}`;
-  $('appNameTop').textContent = CFG.TenUngDung;
-  $('adminBadge').textContent = SESSION? ('👤 '+SESSION.name) : '';
-  reloadDay();
-}
-function buildDoiList(){
-  const gl = $('groupList');
-  let html = `<h3>Chọn nhóm</h3>`;
-  for(let n=1;n<=CFG.SoNhomMoiDoi;n++){
-    const r = recs[`${curDoi}-${n}`];
-    const has = r && hasData(r);
-    html += `<button class="gitem ${n===curNhom?'on':''}" data-nhom="${n}"><span>Nhóm ${n}</span><span class="gst ${has?'ok':'no'}">${has?'Đã nhập':'Chưa nhập'}</span></button>`;
-  }
-  gl.innerHTML = html;
-  gl.querySelectorAll('[data-nhom]').forEach(b=>b.addEventListener('click', ()=>{ curNhom=num(b.dataset.nhom); buildDoiList(); fillForm(); }));
-}
-function reloadDay(){
-  call('getDay', dayISO).then(r=>{
-    recs={}; (r.records||[]).forEach(o=>recs[`${o.Doi}-${o.Nhom}`]=o);
-    $('eCtx').textContent = `Ngày ${fmtDateVN(dayISO)} · ${tenDoi(curDoi)}`;
-    renderStrip(); renderGroups(); renderDaySum(); buildDoiList(); fillForm();
-  }).catch(e=>toast('Lỗi tải dữ liệu: '+e.message, 3500));
-}
-function dayStatus(doi, nhom){ return recs[`${doi}-${nhom}`] && hasData(recs[`${doi}-${nhom}`]); }
-function renderStrip(){
-  const d0 = new Date(monthISO+'-01T00:00:00');
-  const nd = new Date(d0.getFullYear(), d0.getMonth()+1, 0).getDate();
-  let html = '';
-  for(let d=1;d<=nd;d++){
-    const iso = monthISO+'-'+String(d).padStart(2,'0');
-    const sel = iso===dayISO ? ' on' : '';
-    html += `<button class="dbtn${sel}" data-day="${iso}">${d}</button>`;
-  }
-  $('dayStrip').innerHTML = html;
-  $('dayStrip').querySelectorAll('[data-day]').forEach(b=>b.addEventListener('click', ()=>{ dayISO=b.dataset.day; reloadDay(); }));
-}
-function renderGroups(){ $('daySumTitle').textContent = `Tổng hợp ngày ${fmtDateVN(dayISO)} · ${tenDoi(curDoi)}`; }
-function fillForm(){
-  const r = recs[`${curDoi}-${curNhom}`] || {Ngay:dayISO,Doi:curDoi,Nhom:curNhom,LoaiNgay:'Thuong'};
-  curRec = derive(r, prevRecOfCurrent());
-  const locked = lockState();
-  $('lockBanner').style.display = locked ? 'block' : 'none';
-  if(locked) $('lockBanner').textContent = locked;
-  $('phieuTitle').textContent = `Phiếu nhập · ${tenDoi(curDoi)} · Nhóm ${curNhom}`;
-  FIELDS.forEach(k=>{
-    const el = $('f_'+k);
-    if(!el) return;
-    el.value = (curRec[k]===undefined||curRec[k]===null)?'' : curRec[k];
+  const tb = $('trangBiRows'); tb.innerHTML = '';
+  TB_KEYS.forEach(k=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>'+TB_NAMES[k]+'</td><td><input class="yin" type="number" inputmode="decimal" id="f_'+k+'" placeholder="0"></td>';
+    tb.appendChild(tr);
   });
-  TB_KEYS.forEach(k=>{ const el = $('f_'+k); if(el) el.value = curRec[k]||''; });
-  setLoaiNgay(curRec.LoaiNgay||'Thuong');
-  setDoiLoaiNgay(curRec.LoaiNgay||'Thuong');
-  refreshAuto();
-  $('prevNote').textContent = curRec.CoMatHomQua===null ? 'Phiếu trước: chưa có.' : `Phiếu trước (${fmtDateVN(curRec.NgayHomQua||'')}) — định biên ${fmt(curRec.DinhBienHomQua||0)}, có mặt ${fmt(curRec.CoMatHomQua)}.`;
-  $('autoTN').textContent = `Tuyển mới tự tính theo phiếu trước → Tuyển mới ${curRec.TuyenMoi} · Nghỉ việc ${curRec.NghiViec}`;
+  TB_KEYS.forEach(k=>{ const el = $('f_'+k); if(el) el.addEventListener('input', ()=>{ if(!filling){ refreshAuto(); markDirty(); } }); });
 }
-function prevRecOfCurrent(){
-  const cur = recs[`${curDoi}-${curNhom}`];
-  if(!cur) return null;
-  if(!HAS_GAS){ return prevOf(DEMO, cur); }
-  return null;
+
+async function loadEntryScreen(){
+  if(!curMonth){ const d = new Date(); curMonth = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+  $('eMonth').value = curMonth;
+  if(SESSION && SESSION.doi){ curDoi = Number(SESSION.doi); $('eDoiSel').value = String(curDoi); }
+  try{ const r = await call('getMonthDays', {month: curMonth}); monthRecs = r.records||[]; }catch(e){ monthRecs = []; }
+  await reloadDay();
 }
-function lockState(){
-  const r = recs[`${curDoi}-${curNhom}`];
-  if(r && hasData(r) && CFG.ChiNhap==='1') return '🔒 Phiếu này đã nhập và đang bật “Chỉ nhập”. Không sửa được nữa (quản trị tắt chế độ ở Cài đặt để sửa).';
-  if(r && hasData(r) && SESSION && !SESSION.sua) return '🔒 Bạn không có quyền Sửa phiếu đã có. Chỉ xem được phiếu này.';
-  if(!r || !hasData(r)){
-    if(SESSION && !SESSION.them) return '🔒 Bạn không có quyền Thêm phiếu mới.';
+async function reloadDay(){
+  if(!curDate){ const d = new Date(); curDate = isoOf(d.getFullYear(), d.getMonth()+1, d.getDate()); }
+  try{ const r = await call('getDay', {date: curDate}); dayRecs = r.records||[]; }
+  catch(e){ dayRecs = []; }
+  renderStrip(); renderGroups(); fillForm(); renderDaySum();
+}
+function dayStatus(rec){
+  if(!rec || !hasData(rec)) return {txt:'Chưa nhập', cls:'no'};
+  if(num(rec.DinhBien)<=0) return {txt:'Nhập dở', cls:'part'};
+  return {txt:'Đã nhập', cls:'ok'};
+}
+function renderStrip(){
+  const [y,m] = curMonth.split('-').map(Number);
+  const days = new Date(y, m, 0).getDate();
+  const strip = $('dayStrip'); strip.innerHTML = '';
+  for(let d=1; d<=days; d++){
+    const iso = isoOf(y,m,d);
+    const b = document.createElement('button');
+    b.className = 'daybtn' + (iso===curDate ? ' sel' : '');
+    b.textContent = d;
+    b.onclick = ()=>{ curDate = iso; reloadDay(); };
+    strip.appendChild(b);
   }
-  return '';
+}
+function renderGroups(){
+  const gl = $('groupList'); gl.innerHTML = '';
+  for(let nhom=1; nhom<=CFG.SoNhomMoiDoi; nhom++){
+    const rec = dayRecs.find(r=>r.Doi===curDoi && r.Nhom===nhom);
+    const st = dayStatus(rec);
+    const div = document.createElement('div');
+    div.className = 'gcard' + (nhom===curNhom ? ' sel' : '');
+    div.innerHTML = '<b>Nhóm '+nhom+'</b><span class="dot '+st.cls+'"></span><span>'+st.txt+'</span>';
+    div.onclick = ()=>{ curNhom = nhom; renderGroups(); fillForm(); };
+    gl.appendChild(div);
+  }
+}
+
+function fillForm(){
+  filling = true;
+  curRec = dayRecs.find(r=>r.Doi===curDoi && r.Nhom===curNhom) || null;
+  const o = curRec || {Ngay:curDate, Doi:curDoi, Nhom:curNhom};
+  FIELDS.forEach(f=>{ const el = $('f_'+f); if(el) el.value = (o[f]===undefined||o[f]===null) ? '' : o[f]; });
+  document.querySelectorAll('#loaiNgaySeg button').forEach(b=>b.classList.toggle('active', b.dataset.v===(o.LoaiNgay||'Thuong')));
+  $('eCtx').textContent = 'Đội '+curDoi+' · Nhóm '+curNhom+' · '+fmtDateVN(curDate);
+  $('phieuCtx').textContent = 'Nhóm '+curNhom+' — Đội '+curDoi+' — '+fmtDateVN(curDate);
+  $('btnDeletePhieu').style.display = curRec ? '' : 'none';
+  refreshAuto(); applyLock();
+  filling = false;
+  dirty = false; $('btnSaveTop').disabled = false;
+}
+function formLocked(){
+  if(!curRec || !hasData(curRec)) return false;
+  if(CFG.ChiNhap==='1') return true;
+  if(SESSION && !SESSION.sua) return true;
+  return false;
 }
 function applyLock(){
-  const locked = !!lockState();
-  document.querySelectorAll('#phieuCard input, #phieuCard select, #phieuCard textarea').forEach(el=>{ el.disabled = locked; });
-  $('btnSaveTop').disabled = locked;
+  const locked = formLocked();
+  const banner = $('lockBanner');
+  if(banner) banner.style.display = (CFG.ChiNhap==='1' && curRec && hasData(curRec)) ? '' : 'none';
+  FIELDS.forEach(f=>{ const el=$('f_'+f); if(el) el.disabled = locked; });
+  document.querySelectorAll('#loaiNgaySeg button').forEach(b=>b.disabled = locked);
+  $('btnSaveTop').disabled = locked ? true : !dirty;
 }
+function markDirty(){ if(filling) return; dirty = true; $('btnSaveTop').disabled = false; }
+FIELDS.forEach(f=>{ if(TB_KEYS.includes(f)) return; const el=$('f_'+f); if(el) el.addEventListener('input', ()=>{ if(!filling){ refreshAuto(); markDirty(); } }); });
 function readForm(){
-  const o = {Ngay:dayISO, Doi:curDoi, Nhom:curNhom, LoaiNgay: curRec?curRec.LoaiNgay:'Thuong'};
-  FIELDS.forEach(k=>{ const el=$('f_'+k); if(el) o[k]=el.value; });
+  const o = {Ngay:curDate, Doi:curDoi, Nhom:curNhom};
+  FIELDS.forEach(f=>{ const el = $('f_'+f); if(el) o[f] = el.value; });
+  const seg = document.querySelector('#loaiNgaySeg button.active');
+  o.LoaiNgay = seg ? seg.dataset.v : 'Thuong';
   return o;
 }
+function prevRecOfCurrent(){
+  let p = null;
+  monthRecs.filter(r=>r.Doi===curDoi&&r.Nhom===curNhom&&r.Ngay<curDate).sort((a,b)=>a.Ngay<b.Ngay?-1:1).forEach(r=>p=r);
+  return p;
+}
 function refreshAuto(){
-  const r = curRec;
-  $('roCoMat').textContent = fmt(r.CoMat);
-  $('roThieu').textContent = fmt(r.ThieuLD);
-  $('sumMuc1').textContent = fmt(r.CongMuc1);
-  $('sumMuc2').textContent = fmt(r.CongTrangBi);
-  $('sumMuc3').textContent = fmt(r.CongMuc3);
-  $('sumTrangBi').textContent = fmt(r.CongTrangBi);
-  if(r.LoaiNgay==='Mua'){ $('btnNhomMua').classList.add('on'); $('btnNhomLe').classList.remove('on'); }
-  else if(r.LoaiNgay==='Le'){ $('btnNhomLe').classList.add('on'); $('btnNhomMua').classList.remove('on'); }
-  else { $('btnNhomMua').classList.remove('on'); $('btnNhomLe').classList.remove('on'); }
+  const o = derive(readForm(), prevRecOfCurrent());
+  $('roCoMat').textContent = fmt(o.CoMat);
+  $('roThieu').textContent = fmt(o.ThieuLD);
+  $('sumMuc1').textContent = fmt(o.CongMuc1);
+  $('sumMuc2').textContent = fmt(o.CongTrangBi);
+  $('sumMuc3').textContent = fmt(o.CongMuc3);
+  const pn = $('prevNote');
+  if(pn) pn.textContent = o.CoMatHomQua===null ? 'Phiếu trước (chưa có): chưa có số liệu.' : 'Phiếu trước: định biên '+fmt(prevRecOfCurrent()?prevRecOfCurrent().DinhBien:'–')+', có mặt '+o.CoMatHomQua+'.';
+  const at = $('autoTN');
+  if(at) at.textContent = 'Tuyển mới tự tính theo phiếu trước → Tuyển mới '+o.AutoTuyenMoi+' · Nghỉ việc '+o.AutoNghiViec;
 }
-function saveCurrent(){
+async function saveCurrent(){
+  if(formLocked()){ toast('Phiếu đã khóa, không sửa được'); return; }
   const o = readForm();
-  if(!o.MaPhan && !o.DinhBien && !o.CongThuong && !o.CongDup && !o.CongChoang && !o.Vang){ toast('Phiếu trống — chưa có gì để lưu.'); return; }
-  call('saveRecord', o).then(r=>{
-    curRec = r.record;
-    recs[`${curDoi}-${curNhom}`] = r.record;
-    renderGroups(); renderDaySum(); buildDoiList(); fillForm();
-    toast('✅ Đã lưu phiếu.');
-  }).catch(e=>toast('Lỗi lưu: '+e.message, 3500));
+  try{
+    await call('saveRecord', o);
+    toast('Đã lưu phiếu');
+    dirty = false; $('btnSaveTop').disabled = true;
+    await reloadDay();
+  }catch(e){ toast('Lỗi lưu: '+e.message); }
 }
-$('btnSaveTop').addEventListener('click', saveCurrent);
-$('eMonth').addEventListener('change', ()=>{ monthISO=$('eMonth').value||monthISO; const d=new Date(monthISO+'-01T00:00:00'); dayISO=isoOf(d); reloadDay(); });
-$('eDoiSel').addEventListener('change', ()=>{ curDoi=num($('eDoiSel').value); curNhom=1; reloadDay(); });
-document.querySelectorAll('.loaiSeg .seg').forEach(b=>b.addEventListener('click', ()=>setLoaiNgay(b.dataset.loai)));
-function setLoaiNgay(loai){
+$('btnSaveTop').onclick = saveCurrent;
+$('eMonth').onchange = ()=>{ curMonth = $('eMonth').value; const [y,m] = curMonth.split('-'); curDate = isoOf(Number(y),Number(m),1); loadEntryScreen(); };
+$('eDoiSel').onchange = ()=>{ curDoi = Number($('eDoiSel').value); renderGroups(); fillForm(); };
+function setLoaiNgay(v){
+  document.querySelectorAll('#loaiNgaySeg button').forEach(b=>b.classList.toggle('active', b.dataset.v===v));
+  refreshAuto(); markDirty();
+}
+document.querySelectorAll('#loaiNgaySeg button').forEach(b=>b.onclick=()=>setLoaiNgay(b.dataset.v));
+$('btnNhomMua').onclick = ()=>setLoaiNgay('Mua');
+$('btnNhomLe').onclick = ()=>setLoaiNgay('Le');
+async function setDoiLoaiNgay(doi, loai){
+  for(let nhom=1; nhom<=CFG.SoNhomMoiDoi; nhom++){
+    const rec = dayRecs.find(r=>r.Doi===doi&&r.Nhom===nhom);
+    const o = Object.assign({}, rec||{Ngay:curDate,Doi:doi,Nhom:nhom}, {LoaiNgay:loai});
+    try{ await call('saveRecord', o); }catch(e){}
+  }
+  toast('Đã đặt loại ngày cho Đội '+doi);
+  await reloadDay();
+}
+$('btnDoiMua').onclick = ()=>setDoiLoaiNgay(curDoi,'Mua');
+$('btnDoiLe').onclick = ()=>setDoiLoaiNgay(curDoi,'Le');
+$('btnCopyY').onclick = async ()=>{
+  try{ await call('copyYesterday', {date:curDate, doi:curDoi}); toast('Đã chép phiếu hôm qua'); await reloadDay(); }
+  catch(e){ toast('Lỗi chép: '+e.message); }
+};
+$('btnPrevNhom').onclick = ()=>{ if(curNhom>1){ curNhom--; renderGroups(); fillForm(); } };
+$('btnNextNhom').onclick = ()=>{ if(curNhom<CFG.SoNhomMoiDoi){ curNhom++; renderGroups(); fillForm(); } };
+$('btnDeletePhieu').onclick = async ()=>{
   if(!curRec) return;
-  curRec.LoaiNgay = loai;
-  document.querySelectorAll('.loaiSeg .seg').forEach(b=>b.classList.toggle('on', b.dataset.loai===loai));
-  document.querySelectorAll('#phieuCard .seg').forEach(b=>{ if(b.dataset.loai) b.classList.toggle('on', b.dataset.loai===loai); });
-}
-$('btnNhomMua').addEventListener('click', ()=>setDoiLoaiNgay('Mua'));
-$('btnNhomLe').addEventListener('click', ()=>setDoiLoaiNgay('Le'));
-function setDoiLoaiNgay(loai){
-  const isAll = (SESSION && SESSION.doi) ? false : true;
-  if(loai==='Mua' || loai==='Le'){
-    if(!confirm(`Chuyển ${loai==='Mua'?'ngày mưa':'ngày lễ'} cho tất cả các nhóm của ${tenDoi(curDoi)} ngày ${fmtDateVN(dayISO)}?`)) return;
-  }
-  if(isAll){
-    for(let n=1;n<=CFG.SoNhomMoiDoi;n++){ const r = recs[`${curDoi}-${n}`]; if(r) r.LoaiNgay = loai; }
-  }
-  curRec.LoaiNgay = loai;
-  setLoaiNgay(loai);
-  refreshAuto();
-}
-$('btnDoiMua').addEventListener('click', ()=>setDoiLoaiNgay('Mua'));
-$('btnDoiLe').addEventListener('click', ()=>setDoiLoaiNgay('Le'));
-$('btnCopyY').addEventListener('click', ()=>{
-  call('copyYesterday', dayISO).then(r=>{ toast(`✅ Đã sao chép ${r.count} phiếu từ ${fmtDateVN(r.from)}.`); reloadDay(); }).catch(e=>toast('Lỗi sao chép: '+e.message, 3500));
+  if(!confirm('Xóa phiếu ngày '+fmtDateVN(curDate)+' Nhóm '+curNhom+' Đội '+curDoi+'?')) return;
+  try{ await call('deleteRecord', {date:curDate, doi:curDoi, nhom:curNhom}); toast('Đã xóa phiếu'); await reloadDay(); }
+  catch(e){ toast('Lỗi xóa: '+e.message); }
+};
+document.querySelectorAll('[data-ins]').forEach(b=>b.onclick=()=>{
+  const t = $('f_GhiChu'); if(!t) return;
+  t.value = (t.value ? t.value+'\n' : '') + b.dataset.ins;
+  t.focus(); markDirty();
 });
-$('btnPrevNhom').addEventListener('click', ()=>{ if(curNhom>1){ curNhom--; buildDoiList(); fillForm(); } });
-$('btnNextNhom').addEventListener('click', ()=>{ if(curNhom<CFG.SoNhomMoiDoi){ curNhom++; buildDoiList(); fillForm(); } });
-$('btnDeletePhieu').addEventListener('click', ()=>{
-  if(!confirm('Xóa phiếu này? Hành động này không hoàn tác được.')) return;
-  call('deleteRecord', {Ngay:dayISO, Doi:curDoi, Nhom:curNhom}).then(()=>{ toast('🗑 Đã xóa phiếu.'); reloadDay(); }).catch(e=>toast('Lỗi xóa: '+e.message, 3500));
-});
-document.querySelectorAll('[data-ins]').forEach(b=>b.addEventListener('click', ()=>{
-  const t = $('f_'+b.dataset.ins);
-  if(!t) return;
-  const v = b.dataset.v;
-  t.value = (t.value ? t.value + '\n' : '') + v;
-  t.focus();
-}));
 
-function buildDailyText(){
-  const doi = curDoi;
-  const r = recs;
-  let t = `📋 BÁO CÁO NGÀY ${fmtDateVN(dayISO)} · ${tenDoi(doi)}\n`;
-  let total = {cong:0, vang:0, dinhBien:0};
-  for(let n=1;n<=CFG.SoNhomMoiDoi;n++){
-    const o = r[`${doi}-${n}`];
-    if(!o || !hasData(o)) continue;
-    const d = derive(o, prevOf(DEMO, o));
-    t += `\n• Nhóm ${n}: định biên ${fmt(d.DinhBien)}, có mặt ${fmt(d.CoMat)}, đi làm ${fmt(d.DiLam)}, vắng ${fmt(d.Vang)}, thiếu ${fmt(d.ThieuLD)}, tuyển mới ${fmt(d.TuyenMoi)}, nghỉ việc ${fmt(d.NghiViec)}`;
-    total.cong += d.DiLam; total.vang += d.Vang; total.dinhBien += num(d.DinhBien);
-  }
-  t += `\n\nTổng: định biên ${fmt(total.dinhBien)}, đi làm ${fmt(total.cong)}, vắng ${fmt(total.vang)}`;
-  return t;
+/* ================== BÁO CÁO NGÀY / ZALO ================== */
+let dailyNhom = 0;
+function buildDailyText(dateISO, doi, nhom, recs){
+  const rows = (recs||[]).filter(r=>r.Doi===doi && (!nhom || r.Nhom===nhom));
+  const sum = f => rows.reduce((s,r)=>s+num(r[f]),0);
+  const lines = [];
+  lines.push('Ngày: '+fmtDateVN(dateISO)+' — Đội '+doi+(nhom?' — Nhóm '+nhom:''));
+  lines.push('1. Định biên: '+sum('DinhBien')+' — Có mặt: '+sum('CoMat')+' — Đi làm: '+sum('DiLam')+' — Vắng: '+sum('Vang'));
+  lines.push('2. Công thường: '+sum('CongThuong')+' — Công đúp: '+sum('CongDup')+' — Công choàng: '+sum('CongChoang'));
+  lines.push('3. Trang bị: '+sum('CongTrangBi')+' — Thuê cạo: '+sum('ThueCao')+' — Thuê bóc mủ: '+sum('ThueBocMu'));
+  lines.push('4. Phần vắng: '+rows.map(r=>r.DanhSachVang).filter(Boolean).join(', ')+' — Lý do: '+rows.map(r=>r.LyDoVang).filter(Boolean).join('; '));
+  lines.push('5. Phần thiếu: '+rows.map(r=>r.DanhSachThieu).filter(Boolean).join(', ')+' — Cạo không hết cây: '+rows.map(r=>r.CaoKhongHet).filter(Boolean).join('; '));
+  lines.push('6. Ghi chú: '+rows.map(r=>r.GhiChu).filter(Boolean).join(' | '));
+  return lines.join('\n');
 }
-$('btnZaloNhom').addEventListener('click', ()=>{
-  const t = buildDailyText();
-  navigator.clipboard && navigator.clipboard.writeText(t);
-  toast('📋 Đã sao chép báo cáo ngày.');
-});
-$('btnZaloDoi').addEventListener('click', ()=>{
-  const t = buildDailyText();
-  navigator.clipboard && navigator.clipboard.writeText(t);
-  toast('📋 Đã sao chép báo cáo đội.');
-});
-function renderDaySum(){
-  const tbody = $('daySumTable').querySelector('tbody');
-  let rows = '';
-  let tot = {DinhBien:0, CoMat:0, PhienThuong:0, CongThuong:0, PhienDup:0, CongDup:0, PhienChoang:0, CongChoang:0, TrangBi:0, ThueCao:0, ThueBocMu:0, Mua:0, Le:0, DiLam:0, Vang:0, Thieu:0, TuyenMoi:0, NghiViec:0, GhiChu:''};
-  for(let n=1;n<=CFG.SoNhomMoiDoi;n++){
-    const o = recs[`${curDoi}-${n}`];
-    const d = o ? derive(o, prevOf(DEMO, o)) : null;
-    const has = d && hasData(d);
-    const v = (x)=> has? fmt(x): '–';
-    rows += `<tr>
-      <td>Nhóm ${n}</td>
-      <td>${v(d?num(d.DinhBien):0)}</td>
-      <td>${has? fmt(d.CoMat):'Chưa nhập'}</td>
-      <td>${v(d?d.PhienThuong:0)}</td><td>${v(d?num(d.CongThuong):0)}</td>
-      <td>${v(d?d.PhienDup:0)}</td><td>${v(d?num(d.CongDup):0)}</td>
-      <td>${v(d?d.PhienChoang:0)}</td><td>${v(d?num(d.CongChoang):0)}</td>
-      <td>${v(d?d.CongTrangBi:0)}</td>
-      <td>${v(d?num(d.ThueCao):0)}</td><td>${v(d?num(d.ThueBocMu):0)}</td>
-      <td>${v(d? (d.LoaiNgay==='Mua'?1:0):0)}</td><td>${v(d? (d.LoaiNgay==='Le'?1:0):0)}</td>
-      <td>${v(d?d.DiLam:0)}</td><td>${v(d?d.Vang:0)}</td><td>${v(d?d.ThieuLD:0)}</td>
-      <td>${v(d?d.TuyenMoi:0)}</td><td>${v(d?d.NghiViec:0)}</td>
-      <td>${has? esc(d.GhiChu||''):''}</td>
-    </tr>`;
-    if(has){ tot.DinhBien+=num(d.DinhBien); tot.CoMat+=d.CoMat; tot.CongThuong+=num(d.CongThuong); tot.CongDup+=num(d.CongDup); tot.CongChoang+=num(d.CongChoang); tot.TrangBi+=d.CongTrangBi; tot.ThueCao+=num(d.ThueCao); tot.ThueBocMu+=num(d.ThueBocMu); tot.DiLam+=d.DiLam; tot.Vang+=d.Vang; tot.Thieu+=d.ThieuLD; tot.TuyenMoi+=d.TuyenMoi; tot.NghiViec+=d.NghiViec; }
+async function copyText(){
+  const t = $('dailyText').textContent;
+  try{ await navigator.clipboard.writeText(t); toast('Đã sao chép'); }
+  catch(e){
+    const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); toast('Đã sao chép');
   }
-  rows += `<tr class="tot">
-    <td>Tổng cộng</td>
-    <td>${fmt(tot.DinhBien)}</td><td>${fmt(tot.CoMat)}</td><td></td><td>${fmt(tot.CongThuong)}</td><td></td><td>${fmt(tot.CongDup)}</td><td></td><td>${fmt(tot.CongChoang)}</td><td>${fmt(tot.TrangBi)}</td><td>${fmt(tot.ThueCao)}</td><td>${fmt(tot.ThueBocMu)}</td><td></td><td></td><td>${fmt(tot.DiLam)}</td><td>${fmt(tot.Vang)}</td><td>${fmt(tot.Thieu)}</td><td>${fmt(tot.TuyenMoi)}</td><td>${fmt(tot.NghiViec)}</td><td></td>
-  </tr>`;
-  tbody.innerHTML = rows;
+}
+$('btnCopyText').onclick = copyText;
+$('btnZaloNhom').onclick = ()=>{ dailyNhom = curNhom; go('daily'); };
+$('btnZaloDoi').onclick = ()=>{ dailyNhom = 0; go('daily'); };
+async function loadDaily(){
+  const d = $('dailyDate').value || curDate;
+  $('dailyDate').value = d;
+  try{
+    const r = await call('getDay', {date:d});
+    $('dailyText').textContent = buildDailyText(d, curDoi, dailyNhom, r.records||[]);
+  }catch(e){ $('dailyText').textContent = 'Lỗi tải: '+e.message; }
+}
+$('dailyDate').onchange = loadDaily;
+
+function renderDaySum(){
+  const tb = document.querySelector('#daySumTable tbody'); if(!tb) return;
+  $('daySumTitle').textContent = 'Tổng hợp ngày '+fmtDateVN(curDate)+' · Đội '+curDoi;
+  const cols = ['DinhBien','CoMat','PhienThuong','CongThuong','PhienDup','CongDup','PhienChoang','CongChoang','CongTrangBi','ThueCao','ThueBocMu','Mua','Le','DiLam','Vang','ThieuLD','TuyenMoi','NghiViec'];
+  const tot = {}; cols.forEach(c=>tot[c]=0);
+  let html = '';
+  for(let nhom=1; nhom<=CFG.SoNhomMoiDoi; nhom++){
+    const rec = dayRecs.find(x=>x.Doi===curDoi&&x.Nhom===nhom) || {Ngay:curDate,Doi:curDoi,Nhom:nhom};
+    let prev = null;
+    monthRecs.filter(r=>r.Doi===curDoi&&r.Nhom===nhom&&r.Ngay<curDate).sort((a,b)=>a.Ngay<b.Ngay?-1:1).forEach(r=>prev=r);
+    const d = derive(rec, prev);
+    const row = {DinhBien:num(d.DinhBien), CoMat:num(d.CoMat), PhienThuong:num(d.PhienThuong), CongThuong:num(d.CongThuong), PhienDup:num(d.PhienDup), CongDup:num(d.CongDup), PhienChoang:num(d.PhienChoang), CongChoang:num(d.CongChoang), CongTrangBi:num(d.CongTrangBi), ThueCao:num(d.ThueCao), ThueBocMu:num(d.ThueBocMu), Mua:d.LoaiNgay==='Mua'?1:0, Le:d.LoaiNgay==='Le'?1:0, DiLam:num(d.DiLam), Vang:num(d.Vang), ThieuLD:num(d.ThieuLD), TuyenMoi:num(d.TuyenMoi), NghiViec:num(d.NghiViec)};
+    cols.forEach(c=>tot[c]+=row[c]);
+    html += '<tr><td>Nhóm '+nhom+'</td>' + cols.map(c=>'<td>'+fmt(row[c])+'</td>').join('') + '<td>'+(d.GhiChu||'')+'</td></tr>';
+  }
+  html += '<tr class="tot"><td>Cộng</td>' + cols.map(c=>'<td>'+fmt(tot[c])+'</td>').join('') + '<td></td></tr>';
+  tb.innerHTML = html;
 }
 
 /* ================== NHẬP / XUẤT EXCEL ================== */
-const EXCEL_COLS = ['Ngay','Doi','Nhom','MaPhan','TongPhanPhien','PhienThuong','CongThuong','PhienDup','CongDup','PhienChoang','CongChoang','DinhBien','Vang','TuyenMoiNhap','NghiViecNhap','DanhSachVang','LyDoVang','DanhSachThieu','CaoKhongHet','GhiChu','LoaiNgay'].concat(TB_KEYS);
-function downloadBlob(name, blob){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 5000); }
-function csvEscape(v){ const s=String(v??''); return /[",\n]/.test(s)? '"'+s.replace(/"/g,'""')+'"': s; }
-function rowsToCsv(rows){ return rows.map(r=>r.map(csvEscape).join(',')).join('\r\n'); }
-function saveWorkbook(rows, name){
-  if(typeof XLSX !== 'undefined' && XLSX.utils){
+const EXCEL_COLS = ['Ngay','Doi','Nhom','DinhBien','LoaiNgay','MaPhan','TongPhanPhien','PhienThuong','CongThuong','PhienDup','CongDup','PhienChoang','CongChoang'].concat(TB_KEYS).concat(['ThueCao','ThueBocMu','Vang','TuyenMoiNhap','NghiViecNhap','DanhSachVang','LyDoVang','DanhSachThieu','CaoKhongHet','GhiChu']);
+function downloadBlob(name, blob){ const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 2000); }
+const csvEscape = v => { const s = String(v==null?'':v); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
+const rowsToCsv = rows => rows.map(r=>r.map(csvEscape).join(',')).join('\r\n');
+function saveWorkbook(name, rows){
+  if(typeof XLSX !== 'undefined'){
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'DuLieu');
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'ChamCong');
     XLSX.writeFile(wb, name);
   } else {
-    downloadBlob(name.replace(/\.xlsx$/i, '.csv'), new Blob(['\ufeff'+rowsToCsv(rows)], {type:'text/csv;charset=utf-8'}));
+    downloadBlob(name.replace(/\.xlsx$/i,'.csv'), new Blob(['\ufeff'+rowsToCsv(rows)], {type:'text/csv;charset=utf-8'}));
   }
 }
-function exportExcel(){
-  const rows = [EXCEL_COLS];
-  DEMO.forEach(o=>{ rows.push(EXCEL_COLS.map(k=>o[k]??'')); });
-  saveWorkbook(rows, 'SoChamCong_'+monthISO+'.xlsx');
-  toast('📥 Đã xuất Excel.');
+async function exportExcel(){
+  try{
+    const r = await call('getMonthDays', {month: curMonth});
+    const recs = r.records||[];
+    const rows = [EXCEL_COLS];
+    recs.forEach(o=>{ rows.push(EXCEL_COLS.map(c=>o[c]===undefined?'':o[c])); });
+    saveWorkbook('ChamCong_'+curMonth+'.xlsx', rows);
+    toast('Đã xuất Excel tháng '+curMonth);
+  }catch(e){ toast('Lỗi xuất: '+e.message); }
 }
-$('btnExportExcel').addEventListener('click', exportExcel);
+$('btnExportExcel').onclick = exportExcel;
 function templateExcel(){
-  saveWorkbook([EXCEL_COLS], 'MauNhap_SoChamCong.xlsx');
-  toast('📥 Đã tải mẫu Excel.');
+  const ex = {}; EXCEL_COLS.forEach(c=>ex[c]='');
+  ex.Ngay='2026-10-01'; ex.Doi=1; ex.Nhom=1; ex.DinhBien=50; ex.LoaiNgay='Thuong'; ex.CongThuong=38;
+  saveWorkbook('Mau_ChamCong.xlsx', [EXCEL_COLS, EXCEL_COLS.map(c=>ex[c])]);
 }
-$('btnTemplateExcel').addEventListener('click', templateExcel);
+$('btnTemplateExcel').onclick = templateExcel;
 function parseCsv(text){
-  const rows=[]; let cur=[], val='', inQ=false;
+  const rows = []; let row = [], cur = '', q = false;
   for(let i=0;i<text.length;i++){
-    const c=text[i];
-    if(inQ){ if(c==='"'){ if(text[i+1]==='"'){ val+='"'; i++; } else inQ=false; } else val+=c; }
-    else if(c==='"') inQ=true;
-    else if(c===','){ cur.push(val); val=''; }
-    else if(c==='\n'||c==='\r'){ if(c==='\r'&&text[i+1]==='\n') i++; cur.push(val); val=''; rows.push(cur); cur=[]; }
-    else val+=c;
+    const ch = text[i];
+    if(q){
+      if(ch==='"'){ if(text[i+1]==='"'){ cur+='"'; i++; } else q=false; }
+      else cur+=ch;
+    } else if(ch==='"'){ q=true; }
+    else if(ch===','){ row.push(cur); cur=''; }
+    else if(ch==='\n'){ row.push(cur); rows.push(row); row=[]; cur=''; }
+    else if(ch!=='\r'){ cur+=ch; }
   }
-  if(val!==''||cur.length){ cur.push(val); rows.push(cur); }
-  return rows.filter(r=>r.length>1||(r[0]&&r[0].trim()!==''));
+  if(cur!==''||row.length){ row.push(cur); rows.push(row); }
+  return rows;
 }
 function normDate(s){
   s = String(s||'').trim();
-  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if(m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(m) return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
   return s;
 }
-function importExcelFile(file){
-  const reader = new FileReader();
-  reader.onload = e=>{
-    const data = e.target.result;
-    let rows=[];
-    try{
-      if(typeof XLSX !== 'undefined' && XLSX.read){
-        const wb = XLSX.read(data, {type:'array'});
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
-      } else {
-        const text = new TextDecoder('utf-8').decode(data);
-        rows = parseCsv(text.replace(/^\ufeff/, ''));
-      }
-    }catch(err){ toast('Lỗi đọc file: '+err.message, 3500); return; }
-    if(!rows.length){ toast('File trống.'); return; }
-    const header = rows[0].map(h=>String(h).trim());
-    const idx = {}; header.forEach((h,i)=>idx[h]=i);
-    const recs2 = [];
-    for(let i=1;i<rows.length;i++){
-      const r = rows[i];
-      const o = {};
-      EXCEL_COLS.forEach(k=>{ if(idx[k]!==undefined) o[k]=r[idx[k]]; });
-      o.Ngay = normDate(o.Ngay);
-      if(!o.Ngay || !/^\d{4}-\d{2}-\d{2}$/.test(o.Ngay)) return;
-      o.Doi = num(o.Doi); o.Nhom = num(o.Nhom);
-      recs2.push(o);
-    }
-    if(!recs2.length){ toast('Không có dòng hợp lệ để import.'); return; }
-    call('importRecords', recs2).then(r=>{ toast(`✅ Import: thêm ${r.added}, cập nhật ${r.updated}, bỏ qua ${r.skipped}.`); reloadDay(); }).catch(e=>toast('Lỗi import: '+e.message, 3500));
-  };
-  reader.readAsArrayBuffer(file);
+async function importExcelFile(file){
+  const buf = await file.arrayBuffer();
+  let rows = [];
+  if(typeof XLSX !== 'undefined'){
+    const wb = XLSX.read(buf, {type:'array'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+  } else {
+    const text = new TextDecoder('utf-8').decode(buf);
+    rows = parseCsv(text.replace(/^\ufeff/, ''));
+  }
+  if(!rows.length) return toast('File trống');
+  const head = rows[0].map(h=>String(h).trim());
+  const idx = {}; EXCEL_COLS.forEach(c=>{ idx[c] = head.indexOf(c); });
+  const recs = [];
+  for(let i=1;i<rows.length;i++){
+    const r = rows[i]; if(!r || !r.length) continue;
+    const o = {};
+    EXCEL_COLS.forEach(c=>{ if(idx[c]>=0) o[c] = r[idx[c]]; });
+    o.Ngay = normDate(o.Ngay); o.Doi = Number(o.Doi); o.Nhom = Number(o.Nhom);
+    if(o.Ngay && o.Doi && o.Nhom) recs.push(o);
+  }
+  try{
+    const res = await call('importRecords', {records: recs});
+    toast('Đã nhập '+(res.imported!==undefined?res.imported:recs.length)+' phiếu');
+    await loadEntryScreen();
+  }catch(e){ toast('Lỗi nhập: '+e.message); }
 }
-$('excelFile').addEventListener('change', e=>{ const f=e.target.files[0]; if(f) importExcelFile(f); e.target.value=''; });
-
-/* ================== BÁO CÁO NGÀY ================== */
-function loadDaily(){
-  $('dailyDate').value = dayISO;
-  const t = buildDailyText();
-  $('dailyText').value = t;
-}
-$('dailyDate').addEventListener('change', ()=>{ dayISO=$('dailyDate').value||dayISO; loadDaily(); });
-$('btnCopyText').addEventListener('click', ()=>{ navigator.clipboard && navigator.clipboard.writeText($('dailyText').value); toast('📋 Đã sao chép.'); });
+$('btnImportExcel').onclick = ()=>$('excelFile').click();
+$('excelFile').onchange = e=>{ const f = e.target.files[0]; if(f) importExcelFile(f); e.target.value=''; };
 
 /* ================== BÁO CÁO TỔNG QUAN ================== */
-let repDoi=0, repPeriod='thang', repMonth='2026-10';
-document.querySelectorAll('.periodSeg .seg').forEach(b=>b.addEventListener('click', ()=>{
-  repPeriod=b.dataset.per;
-  document.querySelectorAll('.periodSeg .seg').forEach(x=>x.classList.toggle('on', x.dataset.per===repPeriod));
-  loadReport();
-}));
-$('repMonth').addEventListener('change', ()=>{ repMonth=$('repMonth').value||repMonth; loadReport(); });
-$('rDoiSel').addEventListener('change', ()=>{ repDoi=num($('rDoiSel').value); loadReport(); });
-function loadReport(){
-  const m = repMonth;
-  call('getReport', m).then(r=>{
-    $('repMonth').value = m;
-    const rs = $('rDoiSel'); rs.innerHTML = `<option value="0">Tất cả các đội</option><option value="1">${esc(CFG.TenDoi1)}</option><option value="2">${esc(CFG.TenDoi2)}</option>`;
-    rs.value = repDoi;
-    const pick = (P)=>{
-      const s = repPeriod==='nua1'?P.nua1:(repPeriod==='nua2'?P.nua2:P.thang);
-      return s;
-    };
-    const comp = pick(r.company);
-    const kpi = [
-      ['CÔNG PHẢI CẠO', fmt(comp.phaiCao)],
-      ['CÔNG CẠO ĐƯỢC', fmt(comp.cong.thuong+comp.cong.dup+comp.cong.choang)],
-      ['CÔNG KHÔNG ĐƯỢC', fmt(comp.khongDuoc)],
-      ['TỶ LỆ ĐẠT', comp.phaiCao? Math.round((comp.cong.thuong+comp.cong.dup+comp.cong.choang)/comp.phaiCao*100)+'%' : '–'],
-      ['NGÀY MƯA / LỄ', comp.ngay.mua+' / '+comp.ngay.le],
-      ['NGHỈ VIỆC / TUYỂN MỚI', fmt(comp.nghiViec)+' / '+fmt(comp.tuyenMoi)]
-    ];
-    $('repKpis').innerHTML = kpi.map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div></div>`).join('');
-    let rows = '';
-    const groups = r.groups.filter(g=> repDoi===0 || g.doi===repDoi);
-    groups.forEach(g=>{
-      const s = pick(g.periods);
-      rows += `<tr><td>${tenDoi(g.doi)} · Nhóm ${g.nhom}</td>
-        <td>${fmt(s.phaiCao)}</td><td>${fmt(s.cong.thuong+s.cong.dup+s.cong.choang)}</td><td>${fmt(s.khongDuoc)}</td>
-        <td>${s.phaiCao? Math.round((s.cong.thuong+s.cong.dup+s.cong.choang)/s.phaiCao*100)+'%':'–'}</td>
-        <td>${fmt(s.tuyenMoi)}</td><td>${fmt(s.nghiViec)}</td></tr>`;
-    });
-    if(repDoi===0){
-      [1,2].forEach(doi=>{
-        const s = pick(r.doi[doi]);
-        rows += `<tr class="tot"><td>Tổng ${tenDoi(doi)}</td>
-          <td>${fmt(s.phaiCao)}</td><td>${fmt(s.cong.thuong+s.cong.dup+s.cong.choang)}</td><td>${fmt(s.khongDuoc)}</td>
-          <td>${s.phaiCao? Math.round((s.cong.thuong+s.cong.dup+s.cong.choang)/s.phaiCao*100)+'%':'–'}</td>
-          <td>${fmt(s.tuyenMoi)}</td><td>${fmt(s.nghiViec)}</td></tr>`;
-      });
+document.querySelectorAll('#periodSeg button').forEach(b=>b.onclick=()=>{ curPeriod = b.dataset.v; document.querySelectorAll('#periodSeg button').forEach(x=>x.classList.toggle('active', x===b)); loadReport(); });
+$('repMonth').onchange = loadReport;
+$('rDoiSel').onchange = ()=>{ repDoi = Number($('rDoiSel').value); loadReport(); };
+
+function congRow(label, rows, tot){
+  const phai = rows.reduce((s,o)=>s+num(o.DinhBien),0);
+  const thuong = rows.reduce((s,o)=>s+num(o.CongThuong),0);
+  const dup = rows.reduce((s,o)=>s+num(o.CongDup),0);
+  const choang = rows.reduce((s,o)=>s+num(o.CongChoang),0);
+  const duoc = thuong+dup+choang;
+  const tb = rows.reduce((s,o)=>s+num(o.CongTrangBi),0);
+  const thue = rows.reduce((s,o)=>s+num(o.ThueCao)+num(o.ThueBocMu),0);
+  const tuyen = rows.reduce((s,o)=>s+num(o.TuyenMoi),0);
+  const nghi = rows.reduce((s,o)=>s+num(o.NghiViec),0);
+  const tl = phai? Math.round(duoc/phai*100)+'%' : '–';
+  return '<tr'+(tot?' class="tot"':'')+'><td>'+label+'</td><td>'+fmt(phai)+'</td><td>'+fmt(duoc)+'</td><td>'+fmt(phai-duoc)+'</td><td>'+tl+'</td><td>'+fmt(thuong)+'</td><td>'+fmt(dup)+'</td><td>'+fmt(choang)+'</td><td>'+fmt(tb)+'</td><td>'+fmt(thue)+'</td><td>'+fmt(tuyen)+'</td><td>'+fmt(nghi)+'</td></tr>';
+}
+function ngayRow(label, rows, tot){
+  const cnt = f => rows.filter(o=>num(o[f])>0).length;
+  const thuong = cnt('CongThuong'), dup = cnt('CongDup'), choang = cnt('CongChoang'), tb = cnt('CongTrangBi');
+  const thue = rows.filter(o=>num(o.ThueCao)+num(o.ThueBocMu)>0).length;
+  const mua = rows.filter(o=>o.LoaiNgay==='Mua').length;
+  const le = rows.filter(o=>o.LoaiNgay==='Le').length;
+  return '<tr'+(tot?' class="tot"':'')+'><td>'+label+'</td><td>'+thuong+'</td><td>'+dup+'</td><td>'+choang+'</td><td>'+tb+'</td><td>'+thue+'</td><td>'+mua+'</td><td>'+le+'</td></tr>';
+}
+async function loadReport(){
+  const month = $('repMonth').value || curMonth;
+  $('repMonth').value = month;
+  let days = [];
+  if(curPeriod==='nua1') days = [...Array(15)].map((_,i)=>i+1);
+  else if(curPeriod==='nua2') days = [...Array(16)].map((_,i)=>i+16);
+  else days = [...Array(31)].map((_,i)=>i+1);
+  const scopeText = (curPeriod==='nua1' ? '15 ngày đầu tháng ' : curPeriod==='nua2' ? '15 ngày cuối tháng ' : 'Cả tháng ') + month.slice(5,7)+'/'+month.slice(0,4) + ' · ' + (repDoi===0 ? 'Tất cả' : tenDoi(repDoi));
+  try{ const r = await call('getMonthDays', {month}); monthRecs = r.records||[]; }
+  catch(e){ monthRecs = []; }
+  const derived = monthRecs.map(o=>derive(o, prevOf(monthRecs, o)));
+  const recs = derived.filter(o=>(repDoi===0||o.Doi===repDoi) && days.includes(Number(o.Ngay.slice(8,10))));
+  const phai = recs.reduce((s,o)=>s+num(o.DinhBien),0);
+  const thuong = recs.reduce((s,o)=>s+num(o.CongThuong),0);
+  const dup = recs.reduce((s,o)=>s+num(o.CongDup),0);
+  const choang = recs.reduce((s,o)=>s+num(o.CongChoang),0);
+  const duoc = thuong+dup+choang;
+  const tyLe = phai? Math.round(duoc/phai*100) : 0;
+  const mua = recs.filter(o=>o.LoaiNgay==='Mua').length;
+  const le = recs.filter(o=>o.LoaiNgay==='Le').length;
+  const nghi = recs.reduce((s,o)=>s+num(o.NghiViec),0);
+  const tuyen = recs.reduce((s,o)=>s+num(o.TuyenMoi),0);
+  const kpi = (v,l)=>'<div class="kpi"><b>'+v+'</b><span>'+l+'</span></div>';
+  $('repKpis').innerHTML = '<p class="hint" style="grid-column:1/-1">Phạm vi: '+scopeText+'</p>'
+    + kpi(fmt(phai),'CÔNG PHẢI CẠO') + kpi(fmt(duoc),'CÔNG CẠO ĐƯỢC') + kpi(fmt(phai-duoc),'CÔNG KHÔNG ĐƯỢC')
+    + kpi(tyLe+'%','TỶ LỆ ĐẠT') + kpi(mua+' / '+le,'NGÀY MƯA / LỄ') + kpi(nghi+' / '+tuyen,'NGHỈ VIỆC / TUYỂN MỚI');
+  let congHtml = '';
+  const teams = repDoi===0 ? [1,2] : [repDoi];
+  teams.forEach(doi=>{
+    for(let nhom=1; nhom<=CFG.SoNhomMoiDoi; nhom++){
+      congHtml += congRow('Đội '+doi+' · Nhóm '+nhom, recs.filter(o=>o.Doi===doi&&o.Nhom===nhom));
     }
-    rows += `<tr class="tot"><td>Tổng cộng</td>
-      <td>${fmt(comp.phaiCao)}</td><td>${fmt(comp.cong.thuong+comp.cong.dup+comp.cong.choang)}</td><td>${fmt(comp.khongDuoc)}</td>
-      <td>${comp.phaiCao? Math.round((comp.cong.thuong+comp.cong.dup+comp.cong.choang)/comp.phaiCao*100)+'%':'–'}</td>
-      <td>${fmt(comp.tuyenMoi)}</td><td>${fmt(comp.nghiViec)}</td></tr>`;
-    $('repCongTable').querySelector('tbody').innerHTML = rows;
-    renderDayDetail(m);
-    renderChart(m);
-  }).catch(e=>toast('Lỗi báo cáo: '+e.message, 3500));
-}
-function dayAgg(month){
-  const days = {};
-  DEMO.filter(o=>o.Ngay.slice(0,7)===month).forEach(o=>{
-    const d = derive(o, prevOf(DEMO, o));
-    const s = days[d.Ngay] || {DinhBien:0, CoMat:0, DiLam:0, Vang:0, Thieu:0, TuyenMoi:0, NghiViec:0};
-    s.DinhBien += num(d.DinhBien); s.CoMat += d.CoMat; s.DiLam += d.DiLam; s.Vang += d.Vang; s.Thieu += d.ThieuLD; s.TuyenMoi += d.TuyenMoi; s.NghiViec += d.NghiViec;
-    days[d.Ngay] = s;
+    congHtml += congRow('Tổng Đội '+doi, recs.filter(o=>o.Doi===doi), true);
   });
-  return days;
-}
-function renderDayDetail(month){
-  const days = dayAgg(month);
-  const keys = Object.keys(days).sort();
-  let rows = '';
-  keys.forEach(k=>{
-    const s = days[k];
-    rows += `<tr><td>${fmtDateVN(k)}</td><td>${fmt(s.DinhBien)}</td><td>${fmt(s.CoMat)}</td><td>${fmt(s.DiLam)}</td><td>${fmt(s.Vang)}</td><td>${fmt(s.Thieu)}</td><td>${fmt(s.TuyenMoi)}</td><td>${fmt(s.NghiViec)}</td></tr>`;
+  congHtml += congRow('Tổng cộng', recs, true);
+  document.querySelector('#repCongTable tbody').innerHTML = congHtml;
+  let ngayHtml = '';
+  teams.forEach(doi=>{
+    for(let nhom=1; nhom<=CFG.SoNhomMoiDoi; nhom++){
+      ngayHtml += ngayRow('Đội '+doi+' · Nhóm '+nhom, recs.filter(o=>o.Doi===doi&&o.Nhom===nhom));
+    }
+    ngayHtml += ngayRow('Tổng Đội '+doi, recs.filter(o=>o.Doi===doi), true);
   });
-  $('repNgayTable').querySelector('tbody').innerHTML = rows;
+  ngayHtml += ngayRow('Tổng cộng', recs, true);
+  document.querySelector('#repNgayTable tbody').innerHTML = ngayHtml;
+  const dayAgg = [];
+  days.forEach(d=>{
+    const iso = month+'-'+String(d).padStart(2,'0');
+    const rows = recs.filter(o=>o.Ngay===iso);
+    dayAgg.push({Ngay:iso, DinhBien:rows.reduce((s,o)=>s+num(o.DinhBien),0), CoMat:rows.reduce((s,o)=>s+num(o.CoMat),0), CongThuong:rows.reduce((s,o)=>s+num(o.CongThuong),0), CongDup:rows.reduce((s,o)=>s+num(o.CongDup),0), CongChoang:rows.reduce((s,o)=>s+num(o.CongChoang),0), CongTrangBi:rows.reduce((s,o)=>s+num(o.CongTrangBi),0), ThueCao:rows.reduce((s,o)=>s+num(o.ThueCao),0), ThueBocMu:rows.reduce((s,o)=>s+num(o.ThueBocMu),0), Mua:rows.filter(o=>o.LoaiNgay==='Mua').length, Le:rows.filter(o=>o.LoaiNgay==='Le').length, DiLam:rows.reduce((s,o)=>s+num(o.DiLam),0), Vang:rows.reduce((s,o)=>s+num(o.Vang),0), ThieuLD:rows.reduce((s,o)=>s+num(o.ThieuLD),0), TuyenMoi:rows.reduce((s,o)=>s+num(o.TuyenMoi),0), NghiViec:rows.reduce((s,o)=>s+num(o.NghiViec),0)});
+  });
+  renderDayDetail(dayAgg);
+  renderChart(dayAgg);
 }
-function renderChart(month){
-  const days = dayAgg(month);
-  const keys = Object.keys(days).sort();
-  const max = Math.max(1, ...keys.map(k=>days[k].DiLam));
+
+function renderDayDetail(dayAgg){
+  const tb = document.querySelector('#dayDetailTable tbody'); if(!tb) return;
   let html = '';
-  keys.forEach(k=>{
-    const s = days[k];
-    const w = Math.round(s.DiLam/max*100);
-    html += `<div class="bar-row"><div class="bar-label">${k.slice(8,10)}/${k.slice(5,7)}</div><div class="bar-track"><div class="bar-fill" style="width:${w}%"></div></div><div class="bar-val">${fmt(s.DiLam)}</div></div>`;
+  dayAgg.forEach(d=>{
+    const cnBadge = d.DiLam>0 ? ' <span class="cnbadge" title="Đi làm theo bảng chấm CN">👷</span>' : '';
+    html += '<tr><td>'+fmtDateVN(d.Ngay)+cnBadge+'</td><td>'+fmt(d.DinhBien)+'</td><td>'+fmt(d.CoMat)+'</td><td>'+fmt(d.CongThuong)+'</td><td>'+fmt(d.CongDup)+'</td><td>'+fmt(d.CongChoang)+'</td><td>'+fmt(d.CongTrangBi)+'</td><td>'+fmt(d.ThueCao)+'</td><td>'+fmt(d.ThueBocMu)+'</td><td>'+fmt(d.Mua)+'</td><td>'+fmt(d.Le)+'</td><td>'+fmt(d.DiLam)+'</td><td>'+fmt(d.Vang)+'</td><td>'+fmt(d.ThieuLD)+'</td><td>'+fmt(d.TuyenMoi)+'</td><td>'+fmt(d.NghiViec)+'</td></tr>';
   });
-  $('chartBox').innerHTML = html || '<p class="hint">Chưa có dữ liệu tháng này.</p>';
+  tb.innerHTML = html;
+}
+function renderChart(dayAgg){
+  const box = $('chartBox'); if(!box) return;
+  const w = 720, h = 180, pad = 30;
+  const max = Math.max(1, ...dayAgg.map(d=>d.CongThuong));
+  const x = i => pad + (dayAgg.length>1 ? i/(dayAgg.length-1)*(w-pad*2) : (w-pad*2)/2);
+  const y = v => h - pad - (v/max)*(h-pad*2);
+  const poly = dayAgg.map((d,i)=>x(i)+','+y(d.CongThuong)).join(' ');
+  let svg = '<svg viewBox="0 0 '+w+' '+h+'" style="width:100%;height:auto;background:#fff;border:1px solid #e5e7eb;border-radius:10px">';
+  svg += '<polyline points="'+poly+'" fill="none" stroke="#1B7A43" stroke-width="2.5" stroke-linejoin="round"/>';
+  dayAgg.forEach((d,i)=>{ svg += '<circle cx="'+x(i)+'" cy="'+y(d.CongThuong)+'" r="3" fill="#1B7A43"><title>'+d.Ngay+': '+d.CongThuong+'</title></circle>'; });
+  svg += '</svg>';
+  box.innerHTML = svg;
 }
 
 /* ================== CÀI ĐẶT ================== */
 function applyConfig(){
+  document.documentElement.style.setProperty('--accent', CFG.MauChuDao||'#1B7A43');
+  try{ localStorage.setItem('hh_cfg2', JSON.stringify(CFG)); }catch(e){}
   $('c_TenUngDung').value = CFG.TenUngDung||'';
   $('c_TenDoi1').value = CFG.TenDoi1||'';
   $('c_TenDoi2').value = CFG.TenDoi2||'';
   $('c_SoNhomMoiDoi').value = CFG.SoNhomMoiDoi||7;
   $('c_MauChuDao').value = CFG.MauChuDao||'#1B7A43';
   $('c_ChiNhap').checked = CFG.ChiNhap==='1';
-  $('setGeneral').style.display = (SESSION && !SESSION.qt) ? 'none' : 'block';
-  $('pqCard').style.display = (SESSION && !SESSION.qt) ? 'none' : 'block';
-  $('setNoQt').style.display = (SESSION && !SESSION.qt) ? 'block' : 'none';
-  $('btnLogout').style.display = SESSION ? 'block' : 'none';
-  $('meInfo').textContent = SESSION ? `Tài khoản đang dùng: ${SESSION.u} (${SESSION.name}) — Quyền: Xem ${SESSION.xem?'✓':'✗'} · Thêm ${SESSION.them?'✓':'✗'} · Sửa ${SESSION.sua?'✓':'✗'} · Xóa ${SESSION.xoa?'✓':'✗'} · Quản trị ${SESSION.qt?'✓':'✗'}${SESSION.doi?` · Chỉ dữ liệu ${tenDoi(SESSION.doi)}`:''}` : '· Chế độ mở (chưa bật đăng nhập)';
-  if(SESSION && SESSION.qt) loadPQ();
+  document.title = CFG.TenUngDung||'Sổ Chấm Công Cạo Mủ';
+  const la = $('loginAppName'); if(la) la.textContent = CFG.TenUngDung||'';
 }
-$('c_MauChuDao').addEventListener('input', ()=>{ document.documentElement.style.setProperty('--main', $('c_MauChuDao').value); });
-document.querySelectorAll('[data-color]').forEach(b=>b.addEventListener('click', ()=>{ $('c_MauChuDao').value = b.dataset.color; document.documentElement.style.setProperty('--main', b.dataset.color); }));
-$('btnSaveConfig').addEventListener('click', ()=>{
-  const cfg = {TenUngDung:$('c_TenUngDung').value, TenDoi1:$('c_TenDoi1').value, TenDoi2:$('c_TenDoi2').value, SoNhomMoiDoi:num($('c_SoNhomMoiDoi').value), MauChuDao:$('c_MauChuDao').value, ChiNhap:$('c_ChiNhap').checked?'1':'0'};
-  call('saveConfig', cfg).then(r=>{ CFG = r.config; applyConfig(); toast('✅ Đã lưu cài đặt.'); }).catch(e=>toast('Lỗi lưu cài đặt: '+e.message, 3500));
-});
+$('c_MauChuDao').onchange = ()=>{ CFG.MauChuDao = $('c_MauChuDao').value; applyConfig(); };
+document.querySelectorAll('[data-color]').forEach(b=>b.onclick=()=>{ CFG.MauChuDao = b.dataset.color; applyConfig(); });
+$('btnSaveConfig').onclick = async ()=>{
+  CFG = {TenUngDung:$('c_TenUngDung').value.trim(), TenDoi1:$('c_TenDoi1').value.trim(), TenDoi2:$('c_TenDoi2').value.trim(), SoNhomMoiDoi:Number($('c_SoNhomMoiDoi').value)||7, MauChuDao:$('c_MauChuDao').value, ChiNhap:$('c_ChiNhap').checked?'1':'0'};
+  try{ await call('saveConfig', CFG); applyConfig(); toast('Đã lưu cài đặt'); }
+  catch(e){ toast('Lỗi lưu: '+e.message); }
+};
 
 /* ================== ĐĂNG NHẬP ================== */
-let loginAccs = [];
-function loginAccList(){
-  call('getAccounts', {}).then(r=>{ loginAccs = r.accounts||[]; renderLoginAccs(); }).catch(()=>{ loginAccs=[]; renderLoginAccs(); });
-}
-function showLogin(){
-  $('loginWrap').style.display = 'flex';
-  renderLoginAccs();
-}
-function hideLogin(){ $('loginWrap').style.display = 'none'; }
+let loginAccList = [], loginSel = '';
+function showLogin(){ $('loginWrap').classList.add('show'); }
+function hideLogin(){ $('loginWrap').classList.remove('show'); }
 function renderLoginAccs(){
-  const box = $('loginAccs');
-  if(!loginAccs.length){ box.innerHTML = '<p class="hint">Chưa có tài khoản nào (chế độ mở).</p>'; return; }
-  box.innerHTML = loginAccs.map(a=>`<button class="acc ${loginAccs._sel===a.u?'on':''}" data-u="${esc(a.u)}">${esc(a.name)} <span style="opacity:.6">(${esc(a.u)})</span></button>`).join('');
-  box.querySelectorAll('[data-u]').forEach(b=>b.addEventListener('click', ()=>{ loginAccs._sel = b.dataset.u; renderLoginAccs(); }));
+  const box = $('loginAccs'); box.innerHTML = '';
+  loginAccList.forEach(a=>{
+    const b = document.createElement('button');
+    b.className = 'accbtn' + (a.u===loginSel ? ' sel' : '');
+    b.textContent = a.n ? a.n+' ('+a.u+')' : a.u;
+    b.onclick = ()=>{ loginSel = a.u; renderLoginAccs(); $('loginPin').focus(); };
+    box.appendChild(b);
+  });
 }
-$('btnLogin').addEventListener('click', ()=>{
-  const u = loginAccs._sel || (loginAccs[0]&&loginAccs[0].u);
-  const p = $('loginPin').value;
-  if(!u){ $('loginErr').textContent = 'Chọn tài khoản trước.'; return; }
-  call('getBootstrap', {login:{u, p}}).then(r=>{
-    if(r.needLogin){ $('loginErr').textContent = 'Sai mật khẩu hoặc tài khoản không tồn tại.'; return; }
-    SESSION = r.session; setAuth({u:SESSION.u, p});
-    hideLogin();
-    if(r.config) CFG = Object.assign(CFG, r.config);
-    loadEntryScreen();
-    toast('👋 Xin chào, '+SESSION.name);
-  }).catch(e=>{ $('loginErr').textContent = e.message; });
-});
-$('loginPin').addEventListener('keydown', e=>{ if(e.key==='Enter') $('btnLogin').click(); });
-$('btnLogout').addEventListener('click', ()=>{ setAuth(null); SESSION=null; location.reload(); });
+$('btnLogin').onclick = async ()=>{
+  const pin = $('loginPin').value;
+  const acc = loginAccList.find(a=>a.u===loginSel);
+  if(!acc){ $('loginErr').textContent = 'Chọn tài khoản'; return; }
+  $('loginErr').textContent = '';
+  try{
+    const r = await call('login', {u:acc.u, pin});
+    if(r && r.ok){
+      setAuth(r.account||acc);
+      hideLogin();
+      const boot = await call('getBootstrap');
+      startApp(boot);
+    } else {
+      $('loginErr').textContent = 'Sai mật khẩu';
+    }
+  }catch(e){ $('loginErr').textContent = e.message; }
+};
+$('loginPin').onkeydown = e=>{ if(e.key==='Enter') $('btnLogin').click(); };
+$('btnLogout').onclick = ()=>{ setAuth(null); location.reload(); };
 
 /* ================== CHẤM CÔNG THEO ĐỘI ================== */
-let teamMonth='2026-10', teamDoi=1, teamSelDay=null;
-function loadTeam(){
-  $('tDoiSel').innerHTML = `<option value="1">${esc(CFG.TenDoi1)}</option><option value="2">${esc(CFG.TenDoi2)}</option>`;
-  $('tDoiSel').value = teamDoi; $('tDoiSel').disabled = !!(SESSION && SESSION.doi);
-  $('tMonth').value = teamMonth;
-  call('getMonthDays', teamMonth).then(r=>{
-    const recsT = r.records||[];
-    renderTeamMatrix(recsT);
-    renderTeamCheck(recsT);
-  }).catch(e=>toast('Lỗi tải đội: '+e.message, 3500));
+async function loadTeam(){
+  const doi = Number($('tDoiSel').value||1);
+  const month = $('tMonth').value || curMonth;
+  $('tMonth').value = month;
+  try{ const r = await call('getMonthDays', {month}); monthRecs = r.records||[]; }
+  catch(e){ monthRecs = []; }
+  renderTeamMatrix(doi, month);
+  renderTeamCheck(doi);
 }
-function renderTeamMatrix(recsT){
-  const d0 = new Date(teamMonth+'-01T00:00:00');
-  const nd = new Date(d0.getFullYear(), d0.getMonth()+1, 0).getDate();
-  let h = `<tr><th>Nhóm</th>`;
-  for(let d=1;d<=nd;d++) h += `<th>${d}</th>`;
-  h += `<th>Tổng công thường</th></tr>`;
-  let rows = '';
-  for(let n=1;n<=CFG.SoNhomMoiDoi;n++){
-    rows += `<tr><td>Nhóm ${n}</td>`;
-    let tot = 0;
-    for(let d=1;d<=nd;d++){
-      const iso = teamMonth+'-'+String(d).padStart(2,'0');
-      const o = recsT.find(x=>x.Doi===teamDoi&&x.Nhom===n&&x.Ngay===iso);
-      const v = o ? num(o.CongThuong) : 0;
-      tot += v;
-      rows += `<td class="${v?'':'dim'}">${v||'·'}</td>`;
+function renderTeamMatrix(doi, month){
+  const [y,m] = month.split('-').map(Number);
+  const days = new Date(y, m, 0).getDate();
+  $('teamMxTitle').textContent = 'Lưới chấm công tháng '+m+'/'+y+' — '+tenDoi(doi);
+  let thead = '<tr><th>Nhóm</th>';
+  for(let d=1; d<=days; d++) thead += '<th>'+d+'</th>';
+  thead += '</tr>';
+  document.querySelector('#teamMatrix thead').innerHTML = thead;
+  let tbody = '';
+  for(let nhom=1; nhom<=CFG.SoNhomMoiDoi; nhom++){
+    let row = '<tr><td><b>Nhóm '+nhom+'</b></td>';
+    for(let d=1; d<=days; d++){
+      const iso = isoOf(y,m,d);
+      const rec = monthRecs.find(r=>r.Doi===doi&&r.Nhom===nhom&&r.Ngay===iso);
+      const st = dayStatus(rec);
+      const val = rec ? fmt(num(rec.CongThuong)) : '·';
+      row += '<td class="cell '+st.cls+'" data-d="'+iso+'" data-n="'+nhom+'">'+val+'</td>';
     }
-    rows += `<td><b>${fmt(tot)}</b></td></tr>`;
+    row += '</tr>';
+    tbody += row;
   }
-  rows += `<tr class="tot"><td>Cộng</td>`;
-  let gtot = 0;
-  for(let d=1;d<=nd;d++){
-    const iso = teamMonth+'-'+String(d).padStart(2,'0');
-    let s = 0;
-    recsT.filter(x=>x.Doi===teamDoi&&x.Ngay===iso).forEach(x=>s+=num(x.CongThuong));
-    gtot += s;
-    rows += `<td>${s||'·'}</td>`;
-  }
-  rows += `<td><b>${fmt(gtot)}</b></td></tr>`;
-  $('teamMatrix').innerHTML = `<thead>${h}</thead><tbody>${rows}</tbody>`;
-  $('teamMxTitle').textContent = `Bảng công theo đội — ${tenDoi(teamDoi)} · tháng ${teamMonth}`;
+  document.querySelector('#teamMatrix tbody').innerHTML = tbody;
+  document.querySelectorAll('#teamMatrix td.cell').forEach(td=>{
+    td.onclick = ()=>{ curDoi = doi; curNhom = Number(td.dataset.n); curDate = td.dataset.d; curMonth = month; go('entry'); };
+  });
 }
-function renderTeamCheck(recsT){
-  const sel = teamSelDay || dayISO;
-  const rows = [];
-  for(let n=1;n<=CFG.SoNhomMoiDoi;n++){
-    const o = recsT.find(x=>x.Doi===teamDoi&&x.Nhom===n&&x.Ngay===sel);
-    rows.push(`<tr><td>Nhóm ${n}</td><td>${o? fmt(num(o.DinhBien)):'–'}</td><td>${o? fmt(num(o.CongThuong)):'–'}</td><td>${o? fmt(num(o.Vang)):'–'}</td><td>${o? esc(o.LoaiNgay||'Thuong'):''}</td></tr>`);
+function renderTeamCheck(doi){
+  const d = $('tDate').value || curDate;
+  $('tDate').value = d;
+  const rows = monthRecs.filter(r=>r.Doi===doi&&r.Ngay===d);
+  let ok = 0, no = 0, part = 0;
+  for(let nhom=1; nhom<=CFG.SoNhomMoiDoi; nhom++){
+    const rec = rows.find(r=>r.Nhom===nhom);
+    const st = dayStatus(rec);
+    if(st.cls==='ok') ok++; else if(st.cls==='part') part++; else no++;
   }
-  $('teamCheckBox').innerHTML = `<table class="tbl"><thead><tr><th>Nhóm</th><th>Định biên</th><th>Công thường</th><th>Vắng</th><th>Loại ngày</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
-  $('tDate').value = sel;
+  $('teamCheckSum').textContent = 'Ngày '+fmtDateVN(d)+' — Đội '+doi+': Đã nhập '+ok+' · Nhập dở '+part+' · Chưa nhập '+no;
+  let html = '';
+  for(let nhom=1; nhom<=CFG.SoNhomMoiDoi; nhom++){
+    const rec = rows.find(r=>r.Nhom===nhom);
+    const st = dayStatus(rec);
+    const cls = st.cls==='ok' ? 'st-ok' : st.cls==='no' ? 'st-no' : '';
+    const style = st.cls==='part' ? ' style="background:#FFF3D6;color:#8A6100"' : '';
+    html += '<span class="stchip '+cls+'"'+style+'>Nhóm '+nhom+': '+st.txt+'</span> ';
+  }
+  $('teamCheckBox').innerHTML = html;
 }
-$('tDoiSel').addEventListener('change', ()=>{ teamDoi=num($('tDoiSel').value); loadTeam(); });
-$('tMonth').addEventListener('change', ()=>{ teamMonth=$('tMonth').value||teamMonth; loadTeam(); });
-$('tDate').addEventListener('change', ()=>{ teamSelDay=$('tDate').value; loadTeam(); });
+$('tDoiSel').onchange = loadTeam;
+$('tMonth').onchange = loadTeam;
+$('tDate').onchange = ()=>{ const v = $('tDate').value; if(v) $('tMonth').value = v.slice(0,7); loadTeam(); };
 
 /* ================== PHÂN QUYỀN ================== */
 let PQ = [];
-function loadPQ(){
-  call('getAccounts', {}).then(r=>{ PQ = r.accounts||[]; renderPQ(); }).catch(e=>toast('Lỗi tải phân quyền: '+e.message, 3500));
+async function loadPQ(){
+  try{ const r = await call('getAccounts'); PQ = r.accounts||[]; }
+  catch(e){ PQ = []; }
+  renderPQ();
 }
 function pqRowHTML(a, i){
-  const chk = (k)=>`<input type="checkbox" data-i="${i}" data-k="${k}" ${a[k]?'checked':''}>`;
-  const doiOpts = `<option value="0" ${a.doi==0?'selected':''}>Cả 2 đội</option><option value="1" ${a.doi==1?'selected':''}>Đội 1</option><option value="2" ${a.doi==2?'selected':''}>Đội 2</option>`;
-  return `<tr>
-    <td><input type="text" class="pq-inp" data-i="${i}" data-k="u" value="${esc(a.u||'')}"></td>
-    <td><input type="text" class="pq-inp" data-i="${i}" data-k="name" value="${esc(a.name||'')}"></td>
-    <td><select class="pq-inp" data-i="${i}" data-k="doi">${doiOpts}</select></td>
-    <td><input type="text" class="pq-inp" data-i="${i}" data-k="p" value="${esc(a.p||'')}" placeholder="Để trống = giữ nguyên"></td>
-    <td>${chk('xem')}</td><td>${chk('them')}</td><td>${chk('sua')}</td><td>${chk('xoa')}</td><td>${chk('qt')}</td>
-    <td><button class="btn btn-ghost small" data-all="${i}">Tất cả</button></td>
-    <td><button class="btn btn-ghost small" data-del="${i}">✕</button></td>
-  </tr>`;
+  const chk = f => a[f] ? ' checked' : '';
+  return '<tr>'
+    + '<td><input class="pq-inp" data-i="'+i+'" data-f="u" value="'+escA(a.u||'')+'"></td>'
+    + '<td><input class="pq-inp" data-i="'+i+'" data-f="n" value="'+escA(a.n||'')+'"></td>'
+    + '<td><select class="pq-inp" data-i="'+i+'" data-f="doi"><option value=""'+(a.doi===''?' selected':'')+'>Cả 2 đội</option><option value="1"'+(a.doi==='1'?' selected':'')+'>Đội 1</option><option value="2"'+(a.doi==='2'?' selected':'')+'>Đội 2</option></select></td>'
+    + '<td><input class="pq-inp" type="password" data-i="'+i+'" data-f="p" value="'+escA(a.p||'')+'" placeholder="Để trống = giữ nguyên"></td>'
+    + '<td><input type="checkbox" data-i="'+i+'" data-f="xem"'+chk('xem')+'></td>'
+    + '<td><input type="checkbox" data-i="'+i+'" data-f="them"'+chk('them')+'></td>'
+    + '<td><input type="checkbox" data-i="'+i+'" data-f="sua"'+chk('sua')+'></td>'
+    + '<td><input type="checkbox" data-i="'+i+'" data-f="xoa"'+chk('xoa')+'></td>'
+    + '<td><input type="checkbox" data-i="'+i+'" data-f="qt"'+chk('qt')+'></td>'
+    + '<td><input type="checkbox" data-i="'+i+'" data-f="all"'+((a.xem&&a.them&&a.sua&&a.xoa&&a.qt)?' checked':'')+'></td>'
+    + '<td><button class="qbtn" data-del="'+i+'">✕</button></td>'
+    + '</tr>';
 }
 function renderPQ(){
-  const tb = $('pqTable').querySelector('tbody');
-  tb.innerHTML = PQ.map(pqRowHTML).join('');
-  tb.querySelectorAll('[data-i]').forEach(el=>{
-    el.addEventListener('change', ()=>{
-      const i = num(el.dataset.i), k = el.dataset.k;
-      if(el.type==='checkbox') PQ[i][k] = el.checked?1:0;
-      else PQ[i][k] = el.value;
-      if(k==='doi') PQ[i][k] = num(el.value);
-    });
+  const tb = document.querySelector('#pqTable tbody'); if(!tb) return;
+  tb.innerHTML = PQ.map((a,i)=>pqRowHTML(a,i)).join('');
+  tb.querySelectorAll('input,select').forEach(el=>{
+    el.onchange = ()=>{
+      const i = Number(el.dataset.i), f = el.dataset.f;
+      if(el.type==='checkbox'){
+        if(f==='all'){
+          ['xem','them','sua','xoa','qt'].forEach(k=>PQ[i][k]=el.checked?1:0);
+          renderPQ();
+        } else PQ[i][f] = el.checked?1:0;
+      } else PQ[i][f] = el.value;
+    };
   });
-  tb.querySelectorAll('[data-all]').forEach(b=>b.addEventListener('click', ()=>{
-    const i = num(b.dataset.all);
-    ['xem','them','sua','xoa','qt'].forEach(k=>PQ[i][k]=1);
-    renderPQ();
-  }));
-  tb.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', ()=>{
-    const i = num(b.dataset.del);
-    PQ.splice(i,1);
-    renderPQ();
-  }));
+  tb.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ PQ.splice(Number(b.dataset.del),1); renderPQ(); });
 }
-$('btnAddAccount').addEventListener('click', ()=>{
-  PQ.push({u:'', name:'', doi:0, p:'', xem:1, them:1, sua:0, xoa:0, qt:0});
+$('btnAddAccount').onclick = ()=>{
+  PQ.push({u:'taikhoan'+(PQ.length+1), p:'123456', n:'', doi:'', xem:1, them:1, sua:0, xoa:0, qt:0});
   renderPQ();
-});
-$('btnSavePQ').addEventListener('click', ()=>{
-  const clean = PQ.filter(a=>a.u && String(a.u).trim()!=='').map(a=>({u:String(a.u).trim(), name:a.name||a.u, doi:num(a.doi), p:a.p||'', xem:a.xem?1:0, them:a.them?1:0, sua:a.sua?1:0, xoa:a.xoa?1:0, qt:a.qt?1:0}));
-  call('saveAccounts', clean).then(r=>{ PQ = r.accounts||clean; renderPQ(); toast('✅ Đã lưu phân quyền.'); }).catch(e=>toast('Lỗi lưu phân quyền: '+e.message, 3500));
-});
+};
+$('btnSavePQ').onclick = async ()=>{
+  try{ await call('saveAccounts', {accounts:PQ}); toast('Đã lưu phân quyền'); }
+  catch(e){ toast('Lỗi lưu: '+e.message); }
+};
 
-/* ================== CHẤM CÔNG NHÂN ================== */
-let wkWorkers=[], wkMarks={}, wkNotes={}, wkSelDay=null, wkView='day';
-let wkDoi=1, wkNhom=1, wkMonth='2026-10';
+/* ================== CHẤM CÔNG TỪNG CÔNG NHÂN ================== */
+let wkWorkers=[], wkMarks={}, wkNotes={}, wkSelDay='', wkView='day';
 const MARK_CYCLE = ['', 'X', 'V', 'P', 'O', 'NV', 'L', 'B'];
-const MARK_LBL = {X:'Đi làm', V:'Vắng', P:'Nghỉ', O:'Ốm', NV:'Nghỉ hẳn', L:'Lễ', B:'Bận'};
-function escA(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function loadWorkers(){
-  $('wDoiSel').innerHTML = `<option value="1">${esc(CFG.TenDoi1)}</option><option value="2">${esc(CFG.TenDoi2)}</option>`;
-  $('wDoiSel').value = wkDoi; $('wDoiSel').disabled = !!(SESSION && SESSION.doi);
-  $('wNhomSel').innerHTML = '';
-  for(let n=1;n<=CFG.SoNhomMoiDoi;n++){ const o=document.createElement('option'); o.value=n; o.textContent='Nhóm '+n; $('wNhomSel').appendChild(o); }
-  $('wNhomSel').value = wkNhom;
-  $('wMonth').value = wkMonth;
-  call('getWorkerMonth', {doi:wkDoi, nhom:wkNhom, month:wkMonth}).then(r=>{
+const MARK_LBL = {X:'Đi làm', V:'Vắng', P:'Nghỉ', O:'Ốm', NV:'Nghỉ hẳn', L:'Lễ', B:'Mưa bão'};
+const escA = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+
+async function loadWorkers(){
+  const doi = Number($('wDoiSel').value||1);
+  const nhom = Number($('wNhomSel').value||1);
+  const month = $('wMonth').value || curMonth;
+  $('wMonth').value = month;
+  if(!wkSelDay) wkSelDay = curDate || (month+'-01');
+  $('wkDate').value = wkSelDay;
+  try{
+    const r = await call('getWorkerMonth', {doi, nhom, month});
     wkWorkers = r.workers||[];
-    wkMarks = r.marks||{};
-    wkNotes = r.notes||{};
-    renderWk();
-  }).catch(e=>toast('Lỗi tải chấm CN: '+e.message, 3500));
+    wkMarks = {}; wkNotes = {};
+    Object.keys(r.marks||{}).forEach(k=>wkMarks[k]=r.marks[k]);
+    Object.keys(r.notes||{}).forEach(k=>wkNotes[k]=r.notes[k]);
+  }catch(e){ wkWorkers = []; wkMarks = {}; wkNotes = {}; }
+  renderWk();
+}
+function wkDayCounts(dayISO){
+  const c = {X:0,V:0,P:0,O:0,NV:0,L:0,B:0};
+  wkWorkers.forEach(w=>{
+    const k = wkMarks[dayISO+'|'+w.MaCN];
+    if(k && c[k]!==undefined) c[k]++;
+  });
+  return c;
 }
 function renderWk(){
-  const active = wkWorkers.filter(w=>w.DangLam);
-  const inactive = wkWorkers.filter(w=>!w.DangLam);
-  $('wkTitle').textContent = `Bảng chấm ${tenDoi(wkDoi)} – Nhóm ${wkNhom} · tháng ${wkMonth} (${active.length} công nhân đang làm)`;
-  $('wkDayLabel').textContent = wkSelDay ? `Ngày đang chọn: ngày ${wkSelDay} — ` : '';
-  if(wkView==='day'){ renderWkDay(active, inactive); } else { renderWkGrid(active, inactive); }
+  const doi = Number($('wDoiSel').value||1);
+  const nhom = Number($('wNhomSel').value||1);
+  const month = $('wMonth').value || curMonth;
+  const active = wkWorkers.filter(w=>num(w.DangLam)!==0);
+  $('wkTitle').textContent = 'Bảng chấm Đội '+doi+' – Nhóm '+nhom+' · tháng '+month.slice(5,7)+'/'+month.slice(0,4)+' ('+active.length+' công nhân đang làm)';
+  $('wkDayLabel').textContent = fmtDateVN(wkSelDay);
+  $('wkEmpty').style.display = wkWorkers.length ? 'none' : '';
+  $('wkDayView').style.display = wkView==='day' ? '' : 'none';
+  $('wkMonthView').style.display = wkView==='month' ? '' : 'none';
+  if(wkView==='day') renderWkDay();
+  else renderWkGrid();
 }
-function wkDayCounts(day){
-  const active = wkWorkers.filter(w=>w.DangLam);
-  let x=0, v=0, nv=0, un=0;
-  active.forEach(w=>{
-    const mk = (wkMarks[w.MaCN]||{})[String(day)] || '';
-    if(mk==='X') x++;
-    else if(mk==='NV') nv++;
-    else if(mk) v++;
-    else un++;
-  });
-  return {x, v, nv, un, total:active.length};
-}
-function renderWkDay(active, inactive){
-  $('wkDayView').style.display = 'block';
-  $('wkMonthView').style.display = 'none';
-  const d = new Date(wkMonth+'-01T00:00:00');
-  const nd = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
-  if(!wkSelDay || wkSelDay>nd) wkSelDay = 1;
-  const iso = wkMonth+'-'+String(wkSelDay).padStart(2,'0');
-  $('wkDate').value = iso;
-  const c = wkDayCounts(wkSelDay);
-  $('wkDaySummary').textContent = `Ngày ${wkSelDay}/${wkMonth.slice(5,7)}/${wkMonth.slice(0,4)} — Đi làm: ${c.x} · Vắng: ${c.v} · Nghỉ hẳn: ${c.nv} · Chưa chấm: ${c.un} / ${c.total}`;
-  let html = '';
-  active.forEach(w=>{
-    const mk = (wkMarks[w.MaCN]||{})[String(wkSelDay)] || '';
-    const nt = (wkNotes[w.MaCN]||{})[String(wkSelDay)] || '';
-    const st = (m)=> mk===m ? 'on' : '';
-    const noteDisabled = (!mk || mk==='X') && !nt ? 'disabled' : '';
-    html += `<div class="wkrow">
-      <div class="wkname">${esc(w.HoTen)} <span class="dim">(${w.STT})</span></div>
-      <div class="wkbtns">
-        <button class="wkbtn ${st('X')}" data-ma="${w.MaCN}" data-mk="X">Đi làm</button>
-        <button class="wkbtn ${st('V')}" data-ma="${w.MaCN}" data-mk="V">Vắng</button>
-        <button class="wkbtn ${st('P')}" data-ma="${w.MaCN}" data-mk="P">Nghỉ</button>
-        <button class="wkbtn ${st('NV')}" data-ma="${w.MaCN}" data-mk="NV">Nghỉ hẳn</button>
-      </div>
-      <input type="text" class="wknote" data-ma="${w.MaCN}" value="${escA(nt)}" placeholder="Ghi chú nghỉ…" ${noteDisabled}>
-    </div>`;
-  });
-  if(inactive.length){
-    html += `<div class="hint" style="margin-top:12px">Đã nghỉ (${inactive.length}):</div>`;
-    inactive.forEach(w=>{
-      html += `<div class="wkrow dim"><div class="wkname">${esc(w.HoTen)} <span class="dim">(${w.STT}) — Đã nghỉ</span></div>
-        <div class="wkbtns">${SESSION && SESSION.qt ? `<button class="wkbtn" data-react="${w.MaCN}">Đi làm lại</button>` : ''}</div><span></span></div>`;
-    });
-  }
-  $('wkDayList').innerHTML = html || '<p class="hint">Chưa có công nhân.</p>';
-  $('wkDayList').querySelectorAll('[data-mk]').forEach(b=>b.addEventListener('click', ()=>{
-    const ma = b.dataset.ma, mk = b.dataset.mk;
-    const cur = (wkMarks[ma]||{})[String(wkSelDay)] || '';
-    const next = (cur===mk) ? '' : mk;
-    const iso2 = wkMonth+'-'+String(wkSelDay).padStart(2,'0');
-    const payload = {Ngay:iso2, MaCN:ma, KyHieu:next};
-    if(next==='NV' && SESSION && SESSION.qt){
-      if(!confirm(`Cho ${ma} nghỉ hẳn từ ngày ${iso2}? Công nhân sẽ chuyển sang trạng thái nghỉ làm.`)) return;
+async function saveWkMark(maCN, kyHieu, ghiChu){
+  const key = wkSelDay+'|'+maCN;
+  const oldNote = wkNotes[key]||'';
+  const note = (ghiChu===undefined) ? oldNote : ghiChu;
+  try{
+    await call('saveWorkerMark', {ngay:wkSelDay, maCN, kyHieu, ghiChu:note});
+    if(kyHieu) wkMarks[key] = kyHieu; else delete wkMarks[key];
+    if(note) wkNotes[key] = note; else delete wkNotes[key];
+    if(kyHieu==='NV' && SESSION && SESSION.sua){
+      try{ await call('setWorkerActive', {maCN, active:0}); }catch(e){}
     }
-    call('saveWorkerMark', payload).then(()=>{
-      if(!wkMarks[ma]) wkMarks[ma]={};
-      if(next) wkMarks[ma][String(wkSelDay)] = next; else delete wkMarks[ma][String(wkSelDay)];
-      if(next==='NV'){
-        const w = wkWorkers.find(x=>x.MaCN===ma);
-        if(w) w.DangLam = 0;
-      }
-      renderWk();
-      toast(next? `✅ Đã chấm ${MARK_LBL[next]||next}.` : '✅ Đã bỏ chấm.');
-    }).catch(e=>toast('Lỗi chấm: '+e.message, 3500));
-  }));
-  $('wkDayList').querySelectorAll('.wknote').forEach(inp=>inp.addEventListener('blur', ()=>{
-    const ma = inp.dataset.ma;
-    const iso2 = wkMonth+'-'+String(wkSelDay).padStart(2,'0');
-    const cur = (wkMarks[ma]||{})[String(wkSelDay)] || '';
-    const val = inp.value.trim();
-    call('saveWorkerMark', {Ngay:iso2, MaCN:ma, KyHieu:cur, GhiChu:val}).then(()=>{
-      if(!wkNotes[ma]) wkNotes[ma]={};
-      if(val) wkNotes[ma][String(wkSelDay)] = val; else delete wkNotes[ma][String(wkSelDay)];
+    renderWk();
+  }catch(e){ toast('Lỗi chấm: '+e.message); }
+}
+function renderWkDay(){
+  const dayISO = wkSelDay;
+  const c = wkDayCounts(dayISO);
+  const vang = c.V+c.P+c.O+c.L+c.B;
+  const dangLam = wkWorkers.filter(w=>num(w.DangLam)!==0).length;
+  const chua = wkWorkers.filter(w=>num(w.DangLam)!==0 && !wkMarks[dayISO+'|'+w.MaCN]).length;
+  $('wkDaySummary').textContent = 'Ngày '+fmtDateVN(dayISO)+' — Đi làm: '+c.X+' · Vắng: '+vang+' (vắng '+c.V+' · nghỉ '+c.P+' · ốm '+c.O+') · Nghỉ hẳn: '+c.NV+' · Chưa chấm: '+chua+' / '+dangLam;
+  const list = $('wkDayList'); list.innerHTML = '';
+  wkWorkers.forEach(w=>{
+    const active = num(w.DangLam)!==0;
+    const key = dayISO+'|'+w.MaCN;
+    const cur = wkMarks[key]||'';
+    const note = wkNotes[key]||'';
+    const div = document.createElement('div');
+    div.className = 'wkrow';
+    let segs = '';
+    ['X','V','P','NV'].forEach(k=>{
+      segs += '<button class="wkseg'+(cur===k?' on-'+k:'')+'" data-seg="'+w.MaCN+'|'+k+'">'+MARK_LBL[k]+'</button>';
+    });
+    const noteDisabled = (!cur || cur==='X') && !note ? ' disabled' : '';
+    div.innerHTML = '<div class="wkname"><b>'+escA(w.HoTen)+'</b><span class="hint">Phần '+escA(w.PhanCao)+'</span>'+(!active?' <span class="hint">Đã nghỉ</span>':'')+'</div>'
+      + '<div class="wksegs">'+segs+'</div>'
+      + '<input class="wk-note" data-note="'+w.MaCN+'" placeholder="Ghi chú nghỉ…" value="'+escA(note)+'"'+noteDisabled+'>'
+      + (active && SESSION && SESSION.sua ? '<button class="qbtn" data-act="nghi" data-ma="'+w.MaCN+'">Nghỉ hẳn</button>' : '')
+      + (!active && SESSION && SESSION.sua ? '<button class="qbtn" data-act="lamlai" data-ma="'+w.MaCN+'">Đi làm lại</button>' : '');
+    list.appendChild(div);
+  });
+  list.querySelectorAll('[data-seg]').forEach(b=>{
+    b.onclick = async ()=>{
+      const [maCN, k] = b.dataset.seg.split('|');
+      const key = wkSelDay+'|'+maCN;
+      const cur = wkMarks[key]||'';
+      const next = (cur===k) ? '' : k;
+      await saveWkMark(maCN, next);
+    };
+  });
+  list.querySelectorAll('[data-note]').forEach(inp=>{
+    inp.addEventListener('change', async ()=>{
+      const maCN = inp.dataset.note;
+      const key = wkSelDay+'|'+maCN;
+      const cur = wkMarks[key]||'';
+      await saveWkMark(maCN, cur, inp.value.trim());
       toast('📝 Đã lưu ghi chú.');
-    }).catch(e=>toast('Lỗi lưu ghi chú: '+e.message, 3500));
-  }));
-  $('wkDayList').querySelectorAll('[data-react]').forEach(b=>b.addEventListener('click', ()=>{
-    const ma = b.dataset.react;
-    call('setWorkerActive', {MaCN:ma, active:true}).then(()=>{
-      const w = wkWorkers.find(x=>x.MaCN===ma);
-      if(w) w.DangLam = 1;
-      renderWk();
-      toast('✅ Đã cho đi làm lại.');
-    }).catch(e=>toast('Lỗi: '+e.message, 3500));
-  }));
+    });
+  });
+  list.querySelectorAll('[data-act]').forEach(b=>{
+    b.onclick = async ()=>{
+      const maCN = b.dataset.ma;
+      const active = b.dataset.act==='lamlai' ? 1 : 0;
+      try{ await call('setWorkerActive', {maCN, active}); toast(active?'Đã cho đi làm lại':'Đã cho nghỉ hẳn'); await loadWorkers(); }
+      catch(e){ toast('Lỗi: '+e.message); }
+    };
+  });
 }
 
-function renderWkGrid(active, inactive){
-  $('wkDayView').style.display = 'none';
-  $('wkMonthView').style.display = 'block';
-  const d = new Date(wkMonth+'-01T00:00:00');
-  const nd = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
-  let h = `<tr><th>Công nhân</th>`;
-  for(let day=1;day<=nd;day++) h += `<th data-daycol="${day}">${day}</th>`;
-  h += `<th>X</th><th>Vắng</th><th>NV</th></tr>`;
-  let rows = '';
-  const all = [...active, ...inactive];
-  all.forEach(w=>{
-    const mk = wkMarks[w.MaCN]||{};
-    let x=0, v=0, nv=0;
-    let cells = '';
-    for(let day=1;day<=nd;day++){
-      const m = mk[String(day)] || '';
-      if(m==='X') x++; else if(m==='NV') nv++; else if(m) v++;
-      const nt = (wkNotes[w.MaCN]||{})[String(day)] || '';
-      const title = nt ? `Ghi chú: ${escA(nt)}` : (m? (MARK_LBL[m]||m): '');
-      cells += `<td><button class="mk mk-${m||'none'}" data-ma="${w.MaCN}" data-day="${day}" title="${title}">${m||'·'}</button></td>`;
-    }
-    const isInactive = !w.DangLam;
-    rows += `<tr class="${isInactive?'dim':''}"><td class="wkname-cell">${esc(w.HoTen)} (${w.STT})${isInactive?' — Đã nghỉ':''} ${SESSION && SESSION.qt ? (isInactive? `<button class="btn btn-ghost small" data-react="${w.MaCN}">Đi làm lại</button>` : `<button class="btn btn-ghost small" data-nv="${w.MaCN}">Nghỉ hẳn</button>`) : ''}</td>${cells}<td><b>${x}</b></td><td><b>${v}</b></td><td><b>${nv}</b></td></tr>`;
-  });
-  let foot = `<tr class="tot"><td>Cộng ngày</td>`;
-  for(let day=1;day<=nd;day++){
-    let x=0, v=0, nv=0;
-    wkWorkers.forEach(w=>{
-      const m = (wkMarks[w.MaCN]||{})[String(day)] || '';
-      if(m==='X') x++; else if(m==='NV') nv++; else if(m) v++;
-    });
-    foot += `<td>${x} ${v}/${nv}</td>`;
+function renderWkGrid(){
+  const month = $('wMonth').value || curMonth;
+  const [y,m] = month.split('-').map(Number);
+  const days = new Date(y, m, 0).getDate();
+  let thead = '<tr><th>Công nhân</th>';
+  for(let d=1; d<=days; d++){
+    const iso = isoOf(y,m,d);
+    thead += '<th class="'+(iso===wkSelDay?'sel':'')+'" data-day="'+iso+'">'+d+'</th>';
   }
-  foot += `<td></td><td></td><td></td></tr>`;
-  $('wkGrid').innerHTML = `<thead>${h}</thead><tbody>${rows}</tbody><tfoot>${foot}</tfoot>`;
-  $('wkGrid').querySelectorAll('[data-daycol]').forEach(th=>th.addEventListener('click', ()=>{
-    wkSelDay = num(th.dataset.daycol);
-    renderWk();
-  }));
-  $('wkGrid').querySelectorAll('[data-day]').forEach(b=>b.addEventListener('click', ()=>{
-    const ma = b.dataset.ma, day = num(b.dataset.day);
-    const cur = (wkMarks[ma]||{})[String(day)] || '';
-    const idx = MARK_CYCLE.indexOf(cur);
-    const next = MARK_CYCLE[(idx+1)%MARK_CYCLE.length];
-    const iso = wkMonth+'-'+String(day).padStart(2,'0');
-    call('saveWorkerMark', {Ngay:iso, MaCN:ma, KyHieu:next}).then(()=>{
-      if(!wkMarks[ma]) wkMarks[ma]={};
-      if(next) wkMarks[ma][String(day)] = next; else delete wkMarks[ma][String(day)];
-      renderWk();
-    }).catch(e=>toast('Lỗi chấm: '+e.message, 3500));
-  }));
-  $('wkGrid').querySelectorAll('[data-nv]').forEach(b=>b.addEventListener('click', ()=>{
-    const ma = b.dataset.nv;
-    if(!confirm(`Cho công nhân ${ma} nghỉ hẳn?`)) return;
-    call('setWorkerActive', {MaCN:ma, active:false}).then(()=>{ const w = wkWorkers.find(x=>x.MaCN===ma); if(w) w.DangLam=0; renderWk(); toast('✅ Đã cho nghỉ hẳn.'); }).catch(e=>toast('Lỗi: '+e.message, 3500));
-  }));
-  $('wkGrid').querySelectorAll('[data-react]').forEach(b=>b.addEventListener('click', ()=>{
-    const ma = b.dataset.react;
-    call('setWorkerActive', {MaCN:ma, active:true}).then(()=>{ const w = wkWorkers.find(x=>x.MaCN===ma); if(w) w.DangLam=1; renderWk(); toast('✅ Đã cho đi làm lại.'); }).catch(e=>toast('Lỗi: '+e.message, 3500));
-  }));
-  $('wkEmpty').style.display = wkWorkers.length? 'none':'block';
+  thead += '<th>X</th><th>Vắng</th><th>NV</th></tr>';
+  document.querySelector('#wkGrid thead').innerHTML = thead;
+  document.querySelectorAll('#wkGrid thead th[data-day]').forEach(th=>{
+    th.onclick = ()=>{ wkSelDay = th.dataset.day; $('wkDate').value = wkSelDay; renderWk(); };
+  });
+  const ordered = wkWorkers.filter(w=>num(w.DangLam)!==0).concat(wkWorkers.filter(w=>num(w.DangLam)===0));
+  let tbody = '';
+  ordered.forEach(w=>{
+    const active = num(w.DangLam)!==0;
+    let row = '<tr><td><b>'+escA(w.HoTen)+'</b> <span class="hint">'+escA(w.PhanCao)+'</span>';
+    if(active && SESSION && SESSION.sua) row += ' <button class="qbtn" data-act="nghi" data-ma="'+w.MaCN+'">Nghỉ hẳn</button>';
+    if(!active && SESSION && SESSION.sua) row += ' <button class="qbtn" data-act="lamlai" data-ma="'+w.MaCN+'">Đi làm lại</button>';
+    row += '</td>';
+    let cx=0, cv=0, cnv=0;
+    for(let d=1; d<=days; d++){
+      const iso = isoOf(y,m,d);
+      const key = iso+'|'+w.MaCN;
+      const k = wkMarks[key]||'';
+      const note = wkNotes[key]||'';
+      if(k==='X') cx++;
+      else if(k==='V'||k==='P'||k==='O'||k==='L'||k==='B') cv++;
+      else if(k==='NV') cnv++;
+      const cls = k ? 'cell mk-'+k + (note?' hn':'') : 'cell';
+      const title = note ? ' title="Ghi chú: '+escA(note)+'"' : '';
+      row += '<td class="'+cls+'" data-cell="'+key+'"'+title+'>'+(k||'·')+'</td>';
+    }
+    row += '<td>'+cx+'</td><td>'+cv+'</td><td>'+cnv+'</td></tr>';
+    tbody += row;
+  });
+  document.querySelector('#wkGrid tbody').innerHTML = tbody;
+  document.querySelectorAll('#wkGrid td[data-cell]').forEach(td=>{
+    td.onclick = async ()=>{
+      const key = td.dataset.cell;
+      const [iso, maCN] = key.split('|');
+      const cur = wkMarks[key]||'';
+      const ni = (MARK_CYCLE.indexOf(cur)+1) % MARK_CYCLE.length;
+      const next = MARK_CYCLE[ni];
+      wkSelDay = iso; $('wkDate').value = iso;
+      await saveWkMark(maCN, next);
+    };
+  });
+  document.querySelectorAll('#wkGrid [data-act]').forEach(b=>{
+    b.onclick = async ()=>{
+      const maCN = b.dataset.ma;
+      const active = b.dataset.act==='lamlai' ? 1 : 0;
+      try{ await call('setWorkerActive', {maCN, active}); toast(active?'Đã cho đi làm lại':'Đã cho nghỉ hẳn'); await loadWorkers(); }
+      catch(e){ toast('Lỗi: '+e.message); }
+    };
+  });
+  let foot = '<tr><td>Cộng ngày (X / vắng / NV)</td>';
+  for(let d=1; d<=days; d++){
+    const iso = isoOf(y,m,d);
+    const c = wkDayCounts(iso);
+    const vang = c.V+c.P+c.O+c.L+c.B;
+    foot += '<td><b>'+c.X+'</b><br><span>'+vang+'</span>/<span>'+c.NV+'</span></td>';
+  }
+  foot += '<td></td><td></td><td></td></tr>';
+  document.querySelector('#wkGrid tfoot').innerHTML = foot;
 }
-$('wDoiSel').addEventListener('change', ()=>{ wkDoi=num($('wDoiSel').value); wkNhom=1; loadWorkers(); });
-$('wNhomSel').addEventListener('change', ()=>{ wkNhom=num($('wNhomSel').value); loadWorkers(); });
-$('wMonth').addEventListener('change', ()=>{ wkMonth=$('wMonth').value||wkMonth; loadWorkers(); });
-$('btnViewDay').addEventListener('click', ()=>{ wkView='day'; $('btnViewDay').classList.add('wkview-on'); $('btnViewMonth').classList.remove('wkview-on'); renderWk(); });
-$('btnViewMonth').addEventListener('click', ()=>{ wkView='month'; $('btnViewMonth').classList.add('wkview-on'); $('btnViewDay').classList.remove('wkview-on'); renderWk(); });
-$('wkDate').addEventListener('change', ()=>{ const v=$('wkDate').value; if(v){ wkMonth=v.slice(0,7); wkSelDay=num(v.slice(8,10)); loadWorkers(); } });
-$('btnFillX').addEventListener('click', ()=>{
-  if(!wkSelDay) return;
-  const iso = wkMonth+'-'+String(wkSelDay).padStart(2,'0');
-  call('setDayMarks', {Ngay:iso, Doi:wkDoi, Nhom:wkNhom, mode:'fill'}).then(r=>{ toast(`✅ Đã chấm X cho ${r.count} công nhân chưa chấm.`); loadWorkers(); }).catch(e=>toast('Lỗi: '+e.message, 3500));
-});
-$('btnClearDay').addEventListener('click', ()=>{
-  if(!wkSelDay) return;
-  if(!confirm(`Xóa toàn bộ chấm ngày ${wkSelDay}/${wkMonth.slice(5,7)}/${wkMonth.slice(0,4)} của nhóm này?`)) return;
-  const iso = wkMonth+'-'+String(wkSelDay).padStart(2,'0');
-  call('setDayMarks', {Ngay:iso, Doi:wkDoi, Nhom:wkNhom, mode:'clear'}).then(r=>{ toast(`🗑 Đã xóa ${r.count} ô chấm.`); loadWorkers(); }).catch(e=>toast('Lỗi: '+e.message, 3500));
-});
-$('btnAddWorker').addEventListener('click', ()=>{
+
+function buildNhomOptions(sel){
+  sel.innerHTML = '';
+  for(let n=1; n<=CFG.SoNhomMoiDoi; n++){
+    const o = document.createElement('option'); o.value = n; o.textContent = 'Nhóm '+n; sel.appendChild(o);
+  }
+}
+$('wDoiSel').onchange = loadWorkers;
+$('wNhomSel').onchange = loadWorkers;
+$('wMonth').onchange = loadWorkers;
+$('btnViewDay').onclick = ()=>{ wkView='day'; document.querySelectorAll('#btnViewDay,#btnViewMonth').forEach(b=>b.classList.toggle('wkview-on', b.id==='btnViewDay')); renderWk(); };
+$('btnViewMonth').onclick = ()=>{ wkView='month'; document.querySelectorAll('#btnViewDay,#btnViewMonth').forEach(b=>b.classList.toggle('wkview-on', b.id==='btnViewMonth')); renderWk(); };
+$('wkDate').onchange = ()=>{ wkSelDay = $('wkDate').value; renderWk(); };
+$('btnFillX').onclick = async ()=>{
+  try{ await call('setDayMarks', {doi:Number($('wDoiSel').value), nhom:Number($('wNhomSel').value), ngay:wkSelDay, mode:'fillX'}); toast('Đã chấm đi làm các ô trống'); await loadWorkers(); }
+  catch(e){ toast('Lỗi: '+e.message); }
+};
+$('btnClearDay').onclick = async ()=>{
+  if(!confirm('Xóa toàn bộ chấm công ngày '+fmtDateVN(wkSelDay)+' của nhóm này?')) return;
+  try{ await call('setDayMarks', {doi:Number($('wDoiSel').value), nhom:Number($('wNhomSel').value), ngay:wkSelDay, mode:'clear'}); toast('Đã xóa chấm ngày này'); await loadWorkers(); }
+  catch(e){ toast('Lỗi: '+e.message); }
+};
+$('btnAddWorker').onclick = async ()=>{
   const name = $('nwName').value.trim();
   const phan = $('nwPhan').value.trim();
   const khmer = $('nwKhmer').value.trim();
-  if(!name){ toast('Nhập họ tên công nhân.'); return; }
-  call('saveWorker', {Doi:wkDoi, Nhom:wkNhom, HoTen:name, PhanCao:phan, TenKhmer:khmer}).then(r=>{
+  if(!name) return toast('Nhập họ tên');
+  const doi = Number($('wDoiSel').value), nhom = Number($('wNhomSel').value);
+  const stt = wkWorkers.length ? Math.max(...wkWorkers.map(w=>num(w.STT)))+1 : 1;
+  const maCN = doi+'-'+nhom+'-'+String(stt).padStart(3,'0');
+  try{
+    await call('saveWorker', {MaCN:maCN, Doi:doi, Nhom:nhom, STT:stt, PhanCao:phan, HoTen:name, TenKhmer:khmer, DangLam:1});
     $('nwName').value=''; $('nwPhan').value=''; $('nwKhmer').value='';
-    toast(`✅ Đã thêm công nhân ${r.worker.HoTen} (${r.worker.MaCN}).`);
-    loadWorkers();
-  }).catch(e=>toast('Lỗi thêm CN: '+e.message, 3500));
-});
+    toast('Đã thêm công nhân');
+    await loadWorkers();
+  }catch(e){ toast('Lỗi thêm: '+e.message); }
+};
 
 /* ================== KHỞI ĐỘNG ================== */
 function startApp(boot){
   if(boot && boot.config) CFG = Object.assign(CFG, boot.config);
-  if(boot && boot.today){ dayISO = boot.today; monthISO = boot.today.slice(0,7); wkMonth = boot.today.slice(0,7); }
-  if(boot && boot.session){ SESSION = boot.session; }
-  document.documentElement.style.setProperty('--main', CFG.MauChuDao||'#1B7A43');
-  if(boot && boot.open === false){
-    loginAccList();
-    showLogin();
-  } else {
-    hideLogin();
-    loadEntryScreen();
+  if(boot && boot.accounts) AUTH = boot.accounts;
+  applyConfig();
+  buildNhomOptions($('wNhomSel'));
+  const me = SESSION ? (SESSION.n||SESSION.u) : '';
+  const adminBadge = $('adminBadge');
+  if(adminBadge) adminBadge.textContent = SESSION ? ('👤 '+(SESSION.qt?'Quản trị viên':(me+(SESSION.doi?' · Đội '+SESSION.doi:'')))) : '';
+  const meInfo = $('meInfo');
+  if(meInfo){
+    if(!SESSION) meInfo.textContent = '· Chế độ mở (chưa bật đăng nhập)';
+    else {
+      const perms = 'Quyền: Xem '+(SESSION.xem?'✓':'✗')+' · Thêm '+(SESSION.them?'✓':'✗')+' · Sửa '+(SESSION.sua?'✓':'✗')+' · Xóa '+(SESSION.xoa?'✓':'✗')+' · Quản trị '+(SESSION.qt?'✓':'✗');
+      meInfo.textContent = 'Tài khoản đang dùng: '+SESSION.u+(SESSION.doi?' (Đội '+SESSION.doi+')':'')+' — '+perms+(SESSION.doi?' · Chỉ dữ liệu Đội '+SESSION.doi:'');
+    }
   }
+  const logoutBtn = $('btnLogout');
+  if(logoutBtn) logoutBtn.style.display = SESSION ? '' : 'none';
+  const demoBadge = $('demoBadge');
+  if(demoBadge) demoBadge.style.display = HAS_GAS ? 'none' : '';
+  if(SESSION && SESSION.doi){
+    ['eDoiSel','wDoiSel','rDoiSel','tDoiSel'].forEach(id=>{ const el = $(id); if(el){ el.value = String(SESSION.doi); el.disabled = true; } });
+    curDoi = Number(SESSION.doi); repDoi = Number(SESSION.doi);
+  }
+  if(SESSION && !SESSION.qt){
+    const sg = $('setGeneral'); if(sg) sg.style.display = 'none';
+    const pq = $('pqCard'); if(pq) pq.style.display = 'none';
+    const noqt = $('setNoQt'); if(noqt) noqt.style.display = '';
+    const imp = $('btnImportExcel'); if(imp) imp.style.display = 'none';
+  }
+  const d = new Date();
+  curMonth = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  curDate = isoOf(d.getFullYear(), d.getMonth()+1, d.getDate());
+  wkSelDay = curDate;
+  $('eMonth').value = curMonth;
+  $('wMonth').value = curMonth;
+  $('repMonth').value = curMonth;
+  $('tMonth').value = curMonth;
+  $('wkDate').value = curDate;
+  $('dailyDate').value = curDate;
+  $('tDate').value = curDate;
+  $('btnViewDay').classList.add('wkview-on');
+  go('entry');
 }
-(function init(){
-  if(/^(https?:)?\/\//.test(BASE_URL) || /^https?:/.test(BASE_URL)){ $('toMobile').href = BASE_URL + '?view=mobile'; }
-  if(!HAS_GAS){
-    seedDemo();
-    startApp({config:CFG, today:'2026-10-24', session:{u:'(bản nháp)', name:'Quản trị (bản nháp)', doi:0, xem:1, them:1, sua:1, xoa:1, qt:1, open:true}, open:true});
-    return;
+
+(async function init(){
+  buildTrangBiRows();
+  const demoBadge = $('demoBadge');
+  if(demoBadge) demoBadge.style.display = HAS_GAS ? 'none' : '';
+  try{
+    const saved = localStorage.getItem('hh_cfg2');
+    if(saved){ const c = JSON.parse(saved); if(c) CFG = Object.assign(CFG, c); }
+  }catch(e){}
+  const tm = $('toMobile');
+  if(tm){
+    if(/^https?:/.test(BASE_URL)){ tm.href = BASE_URL + '?view=mobile'; }
+    else { tm.style.display = 'none'; }
   }
-  call('getBootstrap', {auth: AUTH || {}}).then(boot=>{
-    if(boot.needLogin){
-      loginAccList();
+  try{
+    const boot = await call('getBootstrap');
+    if(boot && boot.needLogin){
+      loginAccList = boot.accounts||[];
+      loginSel = loginAccList.length ? loginAccList[0].u : '';
+      renderLoginAccs();
       showLogin();
     } else {
       startApp(boot);
     }
-  }).catch(e=>{
-    toast('Lỗi khởi động: '+e.message, 3500);
-    startApp({config:CFG, today:'2026-10-24', open:true});
-  });
+  }catch(e){
+    if(String(e.message||e).indexOf('NEED_LOGIN')>=0){
+      setAuth(null);
+      try{
+        const boot = await call('getBootstrap');
+        if(boot && boot.needLogin){
+          loginAccList = boot.accounts||[];
+          loginSel = loginAccList.length ? loginAccList[0].u : '';
+          renderLoginAccs();
+          showLogin();
+        } else startApp(boot);
+      }catch(e2){ toast('Lỗi tải: '+e2.message); }
+    } else {
+      toast('Lỗi tải: '+e.message);
+    }
+  }
 })();
 </script>
 </body>
