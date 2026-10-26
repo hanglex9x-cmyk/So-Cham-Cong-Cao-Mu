@@ -167,6 +167,10 @@ table.wk td.hn{box-shadow:inset 0 -3px 0 #F9AB00}
 .wkseg button.mk-O{background:#FFE4CC;color:#9A4A00}
 .wkseg button.mk-V{background:#E9E9EC;color:#3F3F46}
 .wkseg button.mk-NV{background:#FDE3E3;color:#B3261E}
+.wkseg button.mk-B{background:#E1EEFC;color:#175CD3}
+.wkseg button.mk-L{background:#FDE8F0;color:#C2185B}
+.wkseg button.on-B{background:#175CD3;color:#fff}
+.wkseg button.on-L{background:#C2185B;color:#fff}
 .wkseg button.on-O{background:#E8890C;color:#fff}
 .wkrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:9px 2px;border-bottom:1px solid var(--border)}
 .wkrow.off{opacity:.5}
@@ -1428,12 +1432,16 @@ function renderWkDay(doi, nhom, m){
   $('wkDayList').innerHTML = list.map(w=>{
     const mk = wkEffMark(w.MaCN, ds, m);
     const nt = wkEffNote(w.MaCN, ds, m);
-    const seg = ['X','P','O','V','NV'].map(k=>'<button type="button" data-seg="'+w.MaCN+'|'+k+'" class="mk-'+k+(mk===k ? ' on-'+k : '')+'" title="'+MARK_LBL[k]+'">'+k+'</button>').join('');
+    const cyc = ['V','P','B','L'];
+    const absMk = (cyc.includes(mk) || mk === 'O') ? mk : 'V';
+    const seg = '<button type="button" data-seg="'+w.MaCN+'|X" class="mk-X'+(mk==='X' ? ' on-X' : '')+'" title="Đi làm (X)">X</button>'
+      + '<button type="button" data-cycle="'+w.MaCN+'" class="mk-'+absMk+(cyc.includes(mk) ? ' on-'+mk : '')+'" title="Vắng / nghỉ — bấm nhiều lần để xoay: V → P → B → L">'+absMk+'</button>'
+      + '<button type="button" data-seg="'+w.MaCN+'|NV" class="mk-NV'+(mk==='NV' ? ' on-NV' : '')+'" title="Nghỉ hẳn (NV)">NV</button>';
     return '<div class="wkrow'+(w.DangLam ? '' : ' off')+'">'
       + '<div class="wnm"><b>'+w.STT+'. '+w.HoTen+'</b>'+(w.TenKhmer ? '<br><span class="hint">'+escA(w.TenKhmer)+'</span>' : '')+'</div>'
       + '<div class="wkseg">'+seg+'</div>'
       + '<div class="wknote"><input class="inp" data-note="'+w.MaCN+'" placeholder="Ghi chú nghỉ…" value="'+escA(nt)+'" '+(((mk && mk !== 'X') || nt) ? '' : 'disabled')+'></div>'
-      + (mk && !['X','P','O','V','NV'].includes(mk) ? '<span class="hint">Đang chấm: <b>'+mk+'</b> ('+(MARK_LBL[mk] || mk)+')</span>' : '')
+      + (mk && !['X','P','O','V','NV','B','L'].includes(mk) ? '<span class="hint">Đang chấm: <b>'+mk+'</b> ('+(MARK_LBL[mk] || mk)+')</span>' : '')
       + '</div>';
   }).join('');
   $('wkDayList').querySelectorAll('[data-seg]').forEach(b=>b.addEventListener('click', ()=>{
@@ -1445,6 +1453,17 @@ function renderWkDay(doi, nhom, m){
     const nxt = (cur === k) ? '' : k;
     wkSetPend(m + '-' + ds.padStart(2, '0'), ma, nxt, undefined);
     if(nxt === 'NV') toast(''+ w.HoTen + ': đã chọn Nghỉ hẳn — bấm  Lưu chấm công để ghi (tài khoản có quyền Sửa thì app cũng ẩn khỏi danh sách).');
+    renderWk(doi, nhom, m);
+  }));
+  $('wkDayList').querySelectorAll('[data-cycle]').forEach(b=>b.addEventListener('click', ()=>{
+    const ma = b.dataset.cycle;
+    const w = wkWorkers.find(x=>x.MaCN === ma);
+    if(!w) return;
+    if(!w.DangLam){ toast('Công nhân này đã nghỉ hẳn — cho đi làm lại mới chấm được.'); return; }
+    const cur = wkEffMark(ma, ds, m);
+    const cyc = ['V','P','B','L'];
+    const nxt = cyc.includes(cur) ? cyc[(cyc.indexOf(cur) + 1) % cyc.length] : 'V';
+    wkSetPend(m + '-' + ds.padStart(2, '0'), ma, nxt, undefined);
     renderWk(doi, nhom, m);
   }));
   $('wkDayList').querySelectorAll('[data-note]').forEach(inp=>inp.addEventListener('change', ()=>{
