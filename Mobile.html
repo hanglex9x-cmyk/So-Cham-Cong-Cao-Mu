@@ -1432,10 +1432,10 @@ function renderWkDay(doi, nhom, m){
   $('wkDayList').innerHTML = list.map(w=>{
     const mk = wkEffMark(w.MaCN, ds, m);
     const nt = wkEffNote(w.MaCN, ds, m);
-    const cyc = ['V','P','B','L'];
+    const cyc = ['V','P','O','B','L'];
     const absMk = (cyc.includes(mk) || mk === 'O') ? mk : 'V';
     const seg = '<button type="button" data-seg="'+w.MaCN+'|X" class="mk-X'+(mk==='X' ? ' on-X' : '')+'" title="Đi làm (X)">X</button>'
-      + '<button type="button" data-cycle="'+w.MaCN+'" class="mk-'+absMk+(cyc.includes(mk) ? ' on-'+mk : '')+'" title="Vắng / nghỉ — bấm nhiều lần để xoay: V → P → B → L">'+absMk+'</button>'
+      + '<button type="button" data-cycle="'+w.MaCN+'" class="mk-'+absMk+(cyc.includes(mk) ? ' on-'+mk : '')+'" title="Vắng / nghỉ — bấm nhiều lần để xoay: V → P → O → B → L">'+absMk+'</button>'
       + '<button type="button" data-seg="'+w.MaCN+'|NV" class="mk-NV'+(mk==='NV' ? ' on-NV' : '')+'" title="Nghỉ hẳn (NV)">NV</button>';
     return '<div class="wkrow'+(w.DangLam ? '' : ' off')+'">'
       + '<div class="wnm"><b>'+w.STT+'. '+w.HoTen+'</b>'+(w.TenKhmer ? '<br><span class="hint">'+escA(w.TenKhmer)+'</span>' : '')+'</div>'
@@ -1461,7 +1461,7 @@ function renderWkDay(doi, nhom, m){
     if(!w) return;
     if(!w.DangLam){ toast('Công nhân này đã nghỉ hẳn — cho đi làm lại mới chấm được.'); return; }
     const cur = wkEffMark(ma, ds, m);
-    const cyc = ['V','P','B','L'];
+    const cyc = ['V','P','O','B','L'];
     const nxt = cyc.includes(cur) ? cyc[(cyc.indexOf(cur) + 1) % cyc.length] : 'V';
     wkSetPend(m + '-' + ds.padStart(2, '0'), ma, nxt, undefined);
     renderWk(doi, nhom, m);
