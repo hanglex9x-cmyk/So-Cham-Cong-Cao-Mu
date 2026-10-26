@@ -410,6 +410,10 @@ button.wkview-on{background:var(--accent);color:#fff;border-color:var(--accent)}
         <button class="qbtn grow" id="btnFillX"><svg class="ic" aria-hidden="true"><use href="#i-check"></use></svg> Chấm đi làm tất cả (ô trống)</button>
         <button class="qbtn grow" id="btnClearDay"><svg class="ic" aria-hidden="true"><use href="#i-x"></use></svg> Xóa chấm ngày</button>
       </div>
+      <div class="row" style="margin:8px 0 10px">
+        <button class="qbtn grow" id="btnRainAll"><svg class="ic" aria-hidden="true"><use href="#i-rain"></use></svg> Cả đội nghỉ mưa</button>
+        <button class="qbtn grow" id="btnHolidayAll"><svg class="ic" aria-hidden="true"><use href="#i-spark"></use></svg> Cả đội nghỉ Lễ/tết</button>
+      </div>
       <div id="wkDayView">
         <label class="lbl">Ngày chấm</label>
         <input type="date" class="inp" id="wkDate">
@@ -1522,6 +1526,19 @@ $('btnClearDay').addEventListener('click', ()=>{
   toast(n ? ('Đã chọn xóa chấm của '+ n + 'công nhân ngày '+ wkSelDay + '— bấm  Lưu chấm công để ghi vào Sheet.') : 'Ngày này chưa có ai được chấm.');
   renderWk(doi, nhom, m);
 });
+function wkSetAllDay(mark, label){
+  const doi = (SESSION && SESSION.doi) ? SESSION.doi : num($('wDoiSel').value) || 1;
+  const nhom = num($('wNhomSel').value) || 1;
+  const m = $('wMonth').value || curMonth;
+  const list = wkWorkers.filter(w=>w.DangLam);
+  if(!list.length){ toast('Nhóm này chưa có công nhân đang làm.'); return; }
+  if(!confirm('Chấm '+ label + ' cho TOÀN BỘ '+ list.length + ' công nhân đang làm của '+ tenDoi(doi) + ' – Nhóm '+ nhom + ', ngày '+ wkSelDay + '/'+ m.slice(5, 7) + '/'+ m.slice(0, 4) + '?\nCác chấm hiện có của ngày này sẽ bị ghi đè. (Chưa ghi vào Sheet — bấm Lưu chấm công để lưu)')) return;
+  list.forEach(w=>{ wkSetPend(wkIsoOf(m, wkSelDay), w.MaCN, mark, undefined); });
+  toast('Đã chọn '+ label + ' cho '+ list.length + ' công nhân ngày '+ wkSelDay + ' — bấm Lưu chấm công để ghi vào Sheet.');
+  renderWk(doi, nhom, m);
+}
+$('btnRainAll').addEventListener('click', ()=>wkSetAllDay('B', 'nghỉ mưa bão (B)'));
+$('btnHolidayAll').addEventListener('click', ()=>wkSetAllDay('L', 'nghỉ Lễ/tết (L)'));
 $('btnSaveWk').addEventListener('click', async ()=>{
   const items = Object.values(wkPending);
   if(!items.length){ toast('Chưa có thay đổi nào để lưu.'); return; }
