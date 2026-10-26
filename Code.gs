@@ -33,7 +33,7 @@ const TRANG_BI_KEYS = ['TB_ThietKe','TB_KiengChen','TB_ChanMua','TB_MaiCheMua','
  * Tự đếm vào phiếu + báo cáo: Vắng = số CN chấm P/O/L/B trong ngày; Nghỉ việc = số CN chấm NV. */
 const TAB_ROSTER = 'DANH_SACH_CN';
 const TAB_MARK = 'CHAM_CONG_CN';
-const ROSTER_HEADERS = ['MaCN','Doi','Nhom','STT','PhanCao','HoTen','TenKhmer','DangLam'];
+const ROSTER_HEADERS = ['MaCN','Doi','Nhom','STT','PhanCao','HoTen','TenKhmer','DangLam','NgayThem'];
 const MARK_HEADERS = ['Ngay','Doi','Nhom','MaCN','KyHieu','CapNhatLuc','NguoiCapNhat','GhiChu'];
 const MARKS = ['X','V','P','O','NV','L','B'];
 
@@ -294,24 +294,33 @@ function derive_(o, prev, mk) {
   d.CongMuc1 = num_(d.CongThuong) + num_(d.CongDup) + num_(d.CongChoang);
   d.CongMuc3 = num_(d.ThueCao) + num_(d.ThueBocMu);
   const mkOk = !!(mk && mk.can > 0 && mk.tong >= Math.ceil(mk.can * 0.8));
-  d.ChamCN = mk ? { x: mk.x, vang: mk.vang, nghi: mk.nghi, tong: mk.tong, can: mk.can, apDung: mkOk } : null;
+  d.ChamCN = mk ? { x: mk.x, vang: mk.vang, vangAll: mk.vangAll || 0, nghi: mk.nghi, them: mk.them || 0, tong: mk.tong, can: mk.can, apDung: mkOk } : null;
   d.LuuVang = num_(o.Vang); // số Vắng LƯU GỐC trong Sheet — giao diện đổ số này vào ô nhập, không đổ số đã derive
   // Từ bản 26/10: bỏ ô "Phần đứng lô" riêng — Công thường CHÍNH LÀ số công nhân đứng lô.
   // Ngày chấm CN đủ phủ -> Đi làm = số CN chấm X, Vắng/Nghỉ việc đếm từ bảng chấm CN (map thẳng, không ghi tay lại)
   d.DiLam = mkOk ? mk.x : num_(d.CongThuong);
   d.Vang = mkOk ? mk.vang : num_(d.Vang);
-  d.CoMat = d.DiLam + d.Vang;
+  // Đợt 7.3 (user chốt tối 26/10): ngày map chấm CN -> Có mặt = đúng số đi làm X;
+  // Vắng (P/O/V) chỉ hiển thị riêng, Lễ/Mưa không tính vào Vắng. Ngày nhập tay giữ
+  // công thức in trên phiếu: Có mặt = Đi làm + Vắng.
+  d.CoMat = mkOk ? d.DiLam : d.DiLam + d.Vang;
+  // Cơ số đối chiếu chuỗi Tuyển/Nghỉ: luôn = Đi làm + TỔNG vắng (gồm cả L/B ở ngày map)
+  // để ngày map và ngày nhập tay so nhau không sinh chênh giả.
+  d.CoMatChain = d.DiLam + (mkOk ? (mk.vangAll || 0) : num_(d.Vang));
   d.ThieuLD = num_(d.DinhBien) - d.CoMat;
   d.SoPhanThieu = countList_(d.DanhSachThieu);
   d.SoPhanVang = d.Vang > 0 ? d.Vang : countList_(d.DanhSachVang);
-  const prevCoMat = prev ? prev.CoMat : null;
+  const prevCoMat = prev ? ((prev.CoMatChain !== undefined && prev.CoMatChain !== null) ? prev.CoMatChain : (prev.CoMat !== undefined ? prev.CoMat : null)) : null;
   d.CoMatHomQua = prevCoMat;
   // Tuyển mới / Nghỉ việc: ưu tiên số NHẬP TAY theo báo cáo chấm công của đội (khách chốt 26/10);
-  // để trống thì tự tính theo chênh Có mặt — NHƯNG chỉ khi phiếu này có số liệu thực
+  // để trống thì tự tính — NHƯNG chỉ khi phiếu này có số liệu thực
   // (hoặc chấm CN đủ phủ) và có phiếu trước có số liệu thực để đối chiếu.
+  // Đợt 7.3: riêng Tuyển mới, nếu ngày đó có thêm người ở màn Chấm CN (NgayThem) thì
+  // lấy đúng số người thêm đó, không tính theo chênh Có mặt nữa.
   const coSoLieu = hasData_(o) || mkOk;
-  const autoTuyen = (prevCoMat === null || !coSoLieu) ? 0 : Math.max(d.CoMat - prevCoMat, 0);
-  const autoNghi = (prevCoMat === null || !coSoLieu) ? 0 : Math.max(prevCoMat - d.CoMat, 0);
+  const autoTuyenChain = (prevCoMat === null || !coSoLieu) ? 0 : Math.max(d.CoMatChain - prevCoMat, 0);
+  const autoNghi = (prevCoMat === null || !coSoLieu) ? 0 : Math.max(prevCoMat - d.CoMatChain, 0);
+  const autoTuyen = (mk && mk.them > 0 && (coSoLieu || mk.tong > 0)) ? mk.them : autoTuyenChain;
   d.AutoTuyenMoi = autoTuyen;
   d.AutoNghiViec = autoNghi;
   d.TuyenMoi = (d.TuyenMoiNhap === '' || d.TuyenMoiNhap === null || d.TuyenMoiNhap === undefined) ? autoTuyen : num_(d.TuyenMoiNhap);
@@ -366,19 +375,24 @@ function findPrev_(map, o) {
   return prev;
 }
 
-/* Tổng hợp chấm CN theo khóa Ngay|Doi|Nhom: x = số X, vang = số V/P/O/L/B, nghi = số NV,
- * tong = số CN PHÂN BIỆT được chấm, can = số CN đang làm của nhóm (để derive_ xét độ phủ).
+/* Tổng hợp chấm CN theo khóa Ngay|Doi|Nhom: x = số X, vang = số V/P/O (đợt 7.3: L/B
+ * KHÔNG tính vào Vắng của phiếu nữa), vangAll = số V/P/O/L/B (cơ số đối chiếu chuỗi),
+ * nghi = số NV, them = số CN được THÊM vào danh sách đúng ngày đó (đợt 7.3: nguồn
+ * Tuyển mới), tong = số CN PHÂN BIỆT được chấm, can = số CN đang làm của nhóm
+ * (để derive_ xét độ phủ).
  * Hàng rào toàn vẹn: khử trùng theo (Ngày, MaCN) — dòng SAU thắng; MaCN không thuộc
  * danh sách CN thì bỏ qua (dòng rác/test không lọt vào số liệu). */
 function marksMap_() {
   const sh = ss_().getSheetByName(TAB_MARK);
   const map = {};
-  if (!sh || sh.getLastRow() < 2) return map;
   const valid = {}, canMap = {};
-  roster_().forEach(w => {
+  const roster = roster_();
+  roster.forEach(w => {
     valid[w.MaCN] = true;
     if (w.DangLam) { const k = w.Doi + '|' + w.Nhom; canMap[k] = (canMap[k] || 0) + 1; }
   });
+  const newEntry = (doi, nhom) => ({ x: 0, vang: 0, vangAll: 0, nghi: 0, them: 0, tong: 0, can: canMap[doi + '|' + nhom] || 0 });
+  if (sh && sh.getLastRow() >= 2) {
   const vals = sh.getRange(2, 1, sh.getLastRow() - 1, MARK_HEADERS.length).getValues();
   const lastByKey = {}; // 'Ngay|MaCN' -> {doi, nhom, kh}
   vals.forEach(r => {
@@ -390,11 +404,20 @@ function marksMap_() {
   Object.keys(lastByKey).forEach(k => {
     const it = lastByKey[k];
     const gk = k.split('|')[0] + '|' + it.doi + '|' + it.nhom;
-    const m = map[gk] || (map[gk] = { x: 0, vang: 0, nghi: 0, tong: 0, can: canMap[it.doi + '|' + it.nhom] || 0 });
+    const m = map[gk] || (map[gk] = newEntry(it.doi, it.nhom));
     m.tong++;
     if (it.kh === 'X') m.x++;
     else if (it.kh === 'NV') m.nghi++;
-    else if (it.kh === 'V' || it.kh === 'P' || it.kh === 'O' || it.kh === 'L' || it.kh === 'B') m.vang++;
+    else if (it.kh === 'V' || it.kh === 'P' || it.kh === 'O') { m.vang++; m.vangAll++; }
+    else if (it.kh === 'L' || it.kh === 'B') m.vangAll++;
+  });
+  }
+  // Đợt 7.3: Tuyển mới lấy theo số người được THÊM ở màn Chấm CN (cột NgayThem của danh sách CN)
+  roster.forEach(w => {
+    if (!w.NgayThem) return;
+    const gk = w.NgayThem + '|' + w.Doi + '|' + w.Nhom;
+    const m = map[gk] || (map[gk] = newEntry(w.Doi, w.Nhom));
+    m.them++;
   });
   return map;
 }
@@ -786,7 +809,8 @@ function roster_() {
   return vals.map(r => ({
     MaCN: maCNStr_(r[0]), Doi: num_(r[1]), Nhom: num_(r[2]), STT: num_(r[3]),
     PhanCao: String(r[4] || ''), HoTen: String(r[5] || ''), TenKhmer: String(r[6] || ''),
-    DangLam: (r[7] === 1 || r[7] === '1' || r[7] === true) ? 1 : 0
+    DangLam: (r[7] === 1 || r[7] === '1' || r[7] === true) ? 1 : 0,
+    NgayThem: (r[8] instanceof Date) ? Utilities.formatDate(r[8], TZ, 'yyyy-MM-dd') : String(r[8] || '').slice(0, 10)
   })).filter(w => w.MaCN);
 }
 
@@ -817,7 +841,7 @@ function saveWorker(req) { // thêm CN mới (quyền Thêm) hoặc sửa thông
     fmtTextCol_(sh, idx + 2, 1, 1); // ép text TRƯỚC khi ghi mã CN (chống biến thành ngày)
     sh.getRange(idx + 2, 1, 1, ROSTER_HEADERS.length).setValues([[
       w.MaCN, num_(w.Doi), num_(w.Nhom), num_(w.STT) || all[idx].STT,
-      String(w.PhanCao || ''), String(w.HoTen || ''), String(w.TenKhmer || ''), all[idx].DangLam
+      String(w.PhanCao || ''), String(w.HoTen || ''), String(w.TenKhmer || ''), all[idx].DangLam, all[idx].NgayThem || ''
     ]]);
     ghiLog_('SUA_CN', w.MaCN, 'Sửa thông tin công nhân', s.u);
     return { ok: true, worker: roster_().find(x => x.MaCN === w.MaCN) };
@@ -829,10 +853,11 @@ function saveWorker(req) { // thêm CN mới (quyền Thêm) hoặc sửa thông
   const ma = num_(w.Doi) + '-' + num_(w.Nhom) + '-' + String(seq).padStart(3, '0');
   const stt = num_(w.STT) || seq;
   const rowNum = sh.getLastRow() + 1;
+  const ngayThem = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'); // ngày thêm CN — phiếu của ngày này tự tính Tuyển mới theo số người thêm ở màn Chấm CN (đợt 7.3)
   fmtTextCol_(sh, rowNum, 1, 1); // ép text TRƯỚC khi ghi mã CN (chống biến thành ngày)
-  sh.getRange(rowNum, 1, 1, ROSTER_HEADERS.length).setValues([[ma, num_(w.Doi), num_(w.Nhom), stt, String(w.PhanCao || ''), String(w.HoTen || '').trim(), String(w.TenKhmer || ''), 1]]);
+  sh.getRange(rowNum, 1, 1, ROSTER_HEADERS.length).setValues([[ma, num_(w.Doi), num_(w.Nhom), stt, String(w.PhanCao || ''), String(w.HoTen || '').trim(), String(w.TenKhmer || ''), 1, ngayThem]]);
   ghiLog_('THEM_CN', ma, 'Thêm công nhân ' + w.HoTen + ' (Đội ' + w.Doi + ' – Nhóm ' + w.Nhom + ')', s.u);
-  return { ok: true, worker: { MaCN: ma, Doi: num_(w.Doi), Nhom: num_(w.Nhom), STT: stt, PhanCao: String(w.PhanCao || ''), HoTen: String(w.HoTen || '').trim(), TenKhmer: String(w.TenKhmer || ''), DangLam: 1 } };
+  return { ok: true, worker: { MaCN: ma, Doi: num_(w.Doi), Nhom: num_(w.Nhom), STT: stt, PhanCao: String(w.PhanCao || ''), HoTen: String(w.HoTen || '').trim(), TenKhmer: String(w.TenKhmer || ''), DangLam: 1, NgayThem: ngayThem } };
 }
 
 function setWorkerActive(req) { // data = {MaCN, active:1/0} — cho nghỉ hẳn / đi làm lại

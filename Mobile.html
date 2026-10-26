@@ -257,8 +257,6 @@ button.wkview-on{background:var(--accent);color:#fff;border-color:var(--accent)}
         <button data-v="Le"><svg class="ic" aria-hidden="true"><use href="#i-spark"></use></svg> Lễ / Tết</button>
       </div>
       <div class="row" style="margin-top:9px">
-        <button class="qbtn grow" id="btnNhomMua">Cả nhóm nghỉ mưa</button>
-        <button class="qbtn grow" id="btnNhomLe">Cả nhóm nghỉ lễ</button>
       </div>
 
       <div class="sec-head"><b>5. Lao động</b></div>
@@ -272,7 +270,7 @@ button.wkview-on{background:var(--accent);color:#fff;border-color:var(--accent)}
       </div>
       <p class="hint" id="prevNote" style="margin:9px 0 0"></p>
       <p class="hint" id="autoTN" style="margin:3px 0 0"></p>
-      <p class="hint" style="margin:3px 0 0">Đi làm = Công thường (số công nhân đứng lô) · Có mặt = Đi làm + Vắng · Thiếu = Định biên − Có mặt · Tuyển mới / Nghỉ việc nhập theo báo cáo của đội, để trống thì tự tính.</p>
+      <p class="hint" style="margin:3px 0 0">Đi làm = Công thường (số công nhân đứng lô) · Có mặt = Đi làm + Vắng · Thiếu = Định biên − Có mặt · Tuyển mới / Nghỉ việc nhập theo báo cáo của đội, để trống thì tự tính. Ngày đã chấm CN đủ phủ: Đi làm = số X, Vắng = số P/O/V, Có mặt = số X, Tuyển mới = số người thêm ở màn Chấm CN.</p>
 
       <div class="sec-head"><b>6. Ghi chú — việc phát sinh trong ngày</b></div>
       <div class="fgrid">
@@ -588,15 +586,17 @@ function derive(o, prev){
   const vangGoc = (d.LuuVang!==undefined && d.LuuVang!==null) ? num(d.LuuVang) : num(d.Vang); // Vắng lưu gốc, không phải số đã derive
   d.DiLam = mk ? num(mk.x) : num(d.CongThuong);
   d.Vang = mk ? num(mk.vang) : vangGoc;
-  d.CoMat = d.DiLam + d.Vang;
+  d.CoMat = mk ? d.DiLam : d.DiLam + d.Vang; // đợt 7.3: ngày map chấm CN -> Có mặt = số đi làm X; ngày nhập tay = Đi làm + Vắng
+  d.CoMatChain = d.DiLam + (mk ? num(mk.vangAll || 0) : vangGoc); // cơ số đối chiếu chuỗi Tuyển/Nghỉ (gồm cả L/B)
   d.ThieuLD = num(d.DinhBien) - d.CoMat;
   d.SoPhanThieu = countList(d.DanhSachThieu);
   d.SoPhanVang = d.Vang>0 ? d.Vang : countList(d.DanhSachVang);
-  const pc = prev ? (prev.CoMat!==undefined && prev.CoMat!==null ? num(prev.CoMat) : num(prev.CongThuong)+num(prev.Vang)) : null;
+  const pc = prev ? (prev.CoMatChain!==undefined && prev.CoMatChain!==null ? num(prev.CoMatChain) : (prev.CoMat!==undefined && prev.CoMat!==null ? num(prev.CoMat) : num(prev.CongThuong)+num(prev.Vang))) : null;
   d.CoMatHomQua = pc;
   const coSoLieu = (num(d.CongThuong)+num(d.CongDup)+num(d.CongChoang)+vangGoc+num(d.ThueCao)+num(d.ThueBocMu)+d.CongTrangBi) > 0 || !!mk;
-  const autoT = (pc===null || !coSoLieu) ? 0 : Math.max(d.CoMat-pc,0);
-  const autoN = (pc===null || !coSoLieu) ? 0 : Math.max(pc-d.CoMat,0);
+  const autoTchain = (pc===null || !coSoLieu) ? 0 : Math.max(d.CoMatChain-pc,0);
+  const autoN = (pc===null || !coSoLieu) ? 0 : Math.max(pc-d.CoMatChain,0);
+  const autoT = (mkRaw && num(mkRaw.them) > 0 && (coSoLieu || num(mkRaw.tong) > 0)) ? num(mkRaw.them) : autoTchain; // đợt 7.3: Tuyển mới theo số người thêm ở màn Chấm CN
   d.AutoTuyenMoi = autoT; d.AutoNghiViec = autoN;
   d.TuyenMoi = (d.TuyenMoiNhap===''||d.TuyenMoiNhap===null||d.TuyenMoiNhap===undefined) ? autoT : num(d.TuyenMoiNhap);
   d.NghiViec = mk ? num(mk.nghi) : ((d.NghiViecNhap===''||d.NghiViecNhap===null||d.NghiViecNhap===undefined) ? autoN : num(d.NghiViecNhap));
@@ -857,8 +857,6 @@ function applyLock(){
   if(lock){ lb.innerHTML = msg; lb.style.display = 'block'; } else lb.style.display = 'none';
   document.querySelectorAll('#phieuCard input, #phieuCard textarea').forEach(el=>{ el.disabled = formLocked; });
   document.querySelectorAll('#loaiNgaySeg button').forEach(b=>{ b.disabled = formLocked; });
-  $('btnNhomMua').disabled = formLocked;
-  $('btnNhomLe').disabled = formLocked;
   if(formLocked) $('btnSaveBar').disabled = true;
   const mkNow = !!(r && r.ChamCN && r.ChamCN.apDung); // chỉ khóa khi chấm CN đủ phủ (đã map thật)
   ['f_Vang','f_NghiViecNhap'].forEach(id=>{ const el=$(id); if(el) el.disabled = formLocked || mkNow; });
@@ -936,8 +934,6 @@ document.querySelectorAll('#loaiNgaySeg button').forEach(b=>b.addEventListener('
   document.querySelectorAll('#loaiNgaySeg button').forEach(x=>x.classList.remove('active')); b.classList.add('active');
   dirty = true; if(!formLocked) $('btnSaveBar').disabled = false; refreshAuto();
 }));
-$('btnNhomMua').addEventListener('click',()=>{ setLoaiNgay('Mua'); });
-$('btnNhomLe').addEventListener('click',()=>{ setLoaiNgay('Le'); });
 function setLoaiNgay(v){
   document.querySelectorAll('#loaiNgaySeg button').forEach(x=>x.classList.toggle('active', x.dataset.v===v));
   dirty = true; if(!formLocked) $('btnSaveBar').disabled = false; refreshAuto();
