@@ -174,15 +174,17 @@ button.wkview-on{background:var(--accent);color:#fff;border-color:var(--accent)}
 .pqacc .cks{display:flex;flex-wrap:wrap;gap:6px 14px}
 .pqacc .cks label{display:flex;align-items:center;gap:5px;font-size:13.5px;font-weight:600}
 .pqacc .cks input{width:19px;height:19px}
+.ic{width:1.12em;height:1.12em;vertical-align:-.2em;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="i-save" viewBox="0 0 24 24"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></symbol><symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></symbol><symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></symbol><symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol><symbol id="i-checkc" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol><symbol id="i-rain" viewBox="0 0 24 24"><path d="M4 14.9A7 7 0 1 1 15.7 8h1.8a4.5 4.5 0 0 1 2.5 8.2"/><path d="M16 14v6"/><path d="M8 14v6"/><path d="M12 16v6"/></symbol><symbol id="i-spark" viewBox="0 0 24 24"><path d="M9.9 15.5A2 2 0 0 0 8.5 14.1L2.4 12.5a.5.5 0 0 1 0-1L8.5 9.9A2 2 0 0 0 9.9 8.5l1.6-6.1a.5.5 0 0 1 1 0l1.6 6.1a2 2 0 0 0 1.4 1.4l6.1 1.6a.5.5 0 0 1 0 1l-6.1 1.6a2 2 0 0 0-1.4 1.4l-1.6 6.1a.5.5 0 0 1-1 0z"/></symbol><symbol id="i-msg" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol><symbol id="i-clip" viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></symbol><symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></symbol><symbol id="i-sliders" viewBox="0 0 24 24"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></symbol><symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></symbol><symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol><symbol id="i-hardhat" viewBox="0 0 24 24"><path d="M2 18a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1Z"/><path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5"/><path d="M4 15v-3a6 6 0 0 1 6-6"/><path d="M14 6a6 6 0 0 1 6 6v3"/></symbol><symbol id="i-phone" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></symbol><symbol id="i-monitor" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></symbol><symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.9 4.9 1.4 1.4"/><path d="m17.7 17.7 1.4 1.4"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.3 17.7-1.4 1.4"/><path d="m19.1 4.9-1.4 1.4"/></symbol><symbol id="i-cal" viewBox="0 0 24 24"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></symbol><symbol id="i-caldays" viewBox="0 0 24 24"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/></symbol><symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/></symbol><symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></symbol><symbol id="i-pen" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.4 3.6a1 1 0 0 1 3 3L7.4 18.6a2 2 0 0 1-.9.5l-2.9.9a.5.5 0 0 1-.6-.6l.8-2.9a2 2 0 0 1 .5-.9z"/></symbol><symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></symbol><symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></symbol><symbol id="i-leaf" viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10Z"/><path d="M2 21c0-3 1.9-5.4 5.1-6C9.5 14.5 12 13 13 12"/></symbol><symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol></svg>
 <div class="phone">
 
   <header class="mhead"><div class="box">
-    <h1><span id="appNameTop">🌴 Sổ Chấm Công Cạo Mủ</span> <span class="badge-admin" id="adminBadge" style="display:none"></span> <span class="demo" id="demoBadge" style="display:none">BẢN NHÁP</span></h1>
+    <h1><span id="appNameTop"><svg class="ic" aria-hidden="true"><use href="#i-leaf"></use></svg> Sổ Chấm Công Cạo Mủ</span> <span class="badge-admin" id="adminBadge" style="display:none"></span> <span class="demo" id="demoBadge" style="display:none">BẢN NHÁP</span></h1>
     <div class="sub">Bản điện thoại · nhập liệu tại lô</div>
-    <a class="pclink" id="toPc" href="#" target="_top">🖥 Mở bản PC (màn hình lớn)</a>
+    <a class="pclink" id="toPc" href="#" target="_top"><svg class="ic" aria-hidden="true"><use href="#i-monitor"></use></svg> Mở bản PC (màn hình lớn)</a>
   </div></header>
 
   <!-- ===== NHẬP CÔNG ===== -->
@@ -203,14 +205,14 @@ button.wkview-on{background:var(--accent);color:#fff;border-color:var(--accent)}
       <div class="gchips" id="groupChips"></div>
       <div class="row wrapf">
         <button class="qbtn" id="btnCopyY">⧉ Chép hôm qua</button>
-        <button class="qbtn" id="btnDoiMua">🌧 Cả đội mưa</button>
-        <button class="qbtn" id="btnDoiLe">🎉 Cả đội lễ</button>
-        <button class="qbtn qbtn-blue" id="btnZaloDoi">💬 Zalo cả đội</button>
+        <button class="qbtn" id="btnDoiMua"><svg class="ic" aria-hidden="true"><use href="#i-rain"></use></svg> Cả đội mưa</button>
+        <button class="qbtn" id="btnDoiLe"><svg class="ic" aria-hidden="true"><use href="#i-spark"></use></svg> Cả đội lễ</button>
+        <button class="qbtn qbtn-blue" id="btnZaloDoi"><svg class="ic" aria-hidden="true"><use href="#i-msg"></use></svg> Zalo cả đội</button>
       </div>
       <div class="row wrapf" style="margin-top:8px">
-        <button class="qbtn" id="btnExportExcel">⬇ Xuất Excel</button>
-        <button class="qbtn" id="btnImportExcel">⬆ Nhập Excel</button>
-        <button class="qbtn" id="btnTemplateExcel">📄 File mẫu</button>
+        <button class="qbtn" id="btnExportExcel"><svg class="ic" aria-hidden="true"><use href="#i-download"></use></svg> Xuất Excel</button>
+        <button class="qbtn" id="btnImportExcel"><svg class="ic" aria-hidden="true"><use href="#i-upload"></use></svg> Nhập Excel</button>
+        <button class="qbtn" id="btnTemplateExcel"><svg class="ic" aria-hidden="true"><use href="#i-file"></use></svg> File mẫu</button>
         <input type="file" id="excelFile" accept=".xlsx,.xls,.csv" style="display:none">
       </div>
     </div>
@@ -219,7 +221,7 @@ button.wkview-on{background:var(--accent);color:#fff;border-color:var(--accent)}
 
     <div class="card" id="phieuCard">
       <div class="phieu-title"><b>PHIẾU CHẤM CÔNG</b><span id="phieuCtx"></span></div>
-      <div class="banner-warn" id="lockBanner" style="display:none;margin-top:12px">🔒 <b>Phiếu này đã được nhập.</b> Đang bật chế độ <b>Chỉ nhập</b> nên không sửa được tại đây. Cần sửa, quản trị vào tab <b>Cài đặt</b> tắt chế độ Chỉ nhập rồi sửa.</div>
+      <div class="banner-warn" id="lockBanner" style="display:none;margin-top:12px"><svg class="ic" aria-hidden="true"><use href="#i-lock"></use></svg> <b>Phiếu này đã được nhập.</b> Đang bật chế độ <b>Chỉ nhập</b> nên không sửa được tại đây. Cần sửa, quản trị vào tab <b>Cài đặt</b> tắt chế độ Chỉ nhập rồi sửa.</div>
 
       <div class="sec-head"><b>1. Cạo — Thường / Đúp / Choàng</b></div>
       <div class="row wrapf" style="margin-bottom:8px"><span class="hint">Mã phần</span><input class="mini-inp" id="f_MaPhan" placeholder="A2"><span class="hint">Tổng phần phiên</span><input class="mini-inp" id="f_TongPhanPhien" type="number" inputmode="decimal" placeholder="38"></div>
@@ -243,9 +245,9 @@ button.wkview-on{background:var(--accent);color:#fff;border-color:var(--accent)}
 
       <div class="sec-head"><b>4. Mưa, lễ — loại ngày</b></div>
       <div class="seg" id="loaiNgaySeg">
-        <button data-v="Thuong" class="active">☀️ Thường</button>
-        <button data-v="Mua">🌧 Mưa</button>
-        <button data-v="Le">🎉 Lễ / Tết</button>
+        <button data-v="Thuong" class="active"><svg class="ic" aria-hidden="true"><use href="#i-sun"></use></svg> Thường</button>
+        <button data-v="Mua"><svg class="ic" aria-hidden="true"><use href="#i-rain"></use></svg> Mưa</button>
+        <button data-v="Le"><svg class="ic" aria-hidden="true"><use href="#i-spark"></use></svg> Lễ / Tết</button>
       </div>
       <div class="row" style="margin-top:9px">
         <button class="qbtn grow" id="btnNhomMua">Cả nhóm nghỉ mưa</button>
@@ -286,11 +288,11 @@ button.wkview-on{background:var(--accent);color:#fff;border-color:var(--accent)}
 
       <div class="row" style="margin-top:18px">
         <button class="btn btn-ghost" id="btnPrevNhom">← Trước</button>
-        <button class="btn btn-blue grow" id="btnZaloNhom">💬 Zalo nhóm này</button>
+        <button class="btn btn-blue grow" id="btnZaloNhom"><svg class="ic" aria-hidden="true"><use href="#i-msg"></use></svg> Zalo nhóm này</button>
         <button class="btn btn-ghost" id="btnNextNhom">Tiếp →</button>
       </div>
       <div class="row" style="margin-top:10px;justify-content:flex-end">
-        <button class="btn btn-danger" id="btnDeletePhieu" style="display:none;height:40px;font-size:13.5px">🗑 Xóa phiếu này</button>
+        <button class="btn btn-danger" id="btnDeletePhieu" style="display:none;height:40px;font-size:13.5px"><svg class="ic" aria-hidden="true"><use href="#i-trash"></use></svg> Xóa phiếu này</button>
       </div>
     </div>
 
@@ -312,7 +314,7 @@ button.wkview-on{background:var(--accent);color:#fff;border-color:var(--accent)}
       <div style="height:12px"></div>
       <pre class="report" id="dailyText">Đang tải…</pre>
       <div style="height:12px"></div>
-      <button class="btn btn-blue" id="btnCopyText" style="width:100%">📋 Sao chép để gửi Zalo</button>
+      <button class="btn btn-blue" id="btnCopyText" style="width:100%"><svg class="ic" aria-hidden="true"><use href="#i-clip"></use></svg> Sao chép để gửi Zalo</button>
     </div>
   </section>
 
@@ -392,21 +394,21 @@ button.wkview-on{background:var(--accent);color:#fff;border-color:var(--accent)}
       <select class="inp" id="wNhomSel"></select>
       <label class="lbl">Tháng</label>
       <input type="month" class="inp" id="wMonth">
-      <p class="hint" style="margin-top:8px">Hai kiểu xem: <b>Theo ngày</b> — chọn ngày, từng công nhân chọn Đi làm / Vắng / Nghỉ / Nghỉ hẳn và ghi chú lý do nghỉ. <b>Theo tháng</b> — lưới cả tháng, chạm vào 1 ô để đổi ký hiệu: <b>X</b> đi làm · <b>V</b> vắng · <b>P</b> nghỉ phép · <b>O</b> ốm · <b>NV</b> nghỉ việc · <b>L</b> lễ · <b>B</b> mưa bão · trống = chưa chấm. <b>Vắng</b> (V+P+O+L+B) và <b>Nghỉ việc</b> (NV) tự đếm sang phiếu + báo cáo. <b>Chọn chấm xong phải bấm 💾 Lưu chấm công</b> mới ghi vào Sheet.</p>
+      <p class="hint" style="margin-top:8px">Hai kiểu xem: <b>Theo ngày</b> — chọn ngày, từng công nhân chọn Đi làm / Vắng / Nghỉ / Nghỉ hẳn và ghi chú lý do nghỉ. <b>Theo tháng</b> — lưới cả tháng, chạm vào 1 ô để đổi ký hiệu: <b>X</b> đi làm · <b>V</b> vắng · <b>P</b> nghỉ phép · <b>O</b> ốm · <b>NV</b> nghỉ việc · <b>L</b> lễ · <b>B</b> mưa bão · trống = chưa chấm. <b>Vắng</b> (V+P+O+L+B) và <b>Nghỉ việc</b> (NV) tự đếm sang phiếu + báo cáo. <b>Chọn chấm xong phải bấm <svg class="ic" aria-hidden="true"><use href="#i-save"></use></svg> Lưu chấm công</b> mới ghi vào Sheet.</p>
     </div>
     <div class="card">
       <h3 id="wkTitle">Bảng chấm công nhân</h3>
       <div class="row" style="margin:8px 0">
-        <button class="qbtn grow" id="btnViewDay">📅 Theo ngày</button>
-        <button class="qbtn grow" id="btnViewMonth">🗓 Theo tháng</button>
+        <button class="qbtn grow" id="btnViewDay"><svg class="ic" aria-hidden="true"><use href="#i-cal"></use></svg> Theo ngày</button>
+        <button class="qbtn grow" id="btnViewMonth"><svg class="ic" aria-hidden="true"><use href="#i-caldays"></use></svg> Theo tháng</button>
       </div>
       <p class="hint">Ngày đang chọn: <b id="wkDayLabel">—</b></p>
       <div class="row" style="margin:8px 0 10px">
-        <button class="btn btn-green grow" id="btnSaveWk" disabled>💾 Lưu chấm công</button>
+        <button class="btn btn-green grow" id="btnSaveWk" disabled><svg class="ic" aria-hidden="true"><use href="#i-save"></use></svg> Lưu chấm công</button>
       </div>
       <div class="row" style="margin:8px 0 10px">
-        <button class="qbtn grow" id="btnFillX">✓ Chấm đi làm tất cả (ô trống)</button>
-        <button class="qbtn grow" id="btnClearDay">✕ Xóa chấm ngày</button>
+        <button class="qbtn grow" id="btnFillX"><svg class="ic" aria-hidden="true"><use href="#i-check"></use></svg> Chấm đi làm tất cả (ô trống)</button>
+        <button class="qbtn grow" id="btnClearDay"><svg class="ic" aria-hidden="true"><use href="#i-x"></use></svg> Xóa chấm ngày</button>
       </div>
       <div id="wkDayView">
         <label class="lbl">Ngày chấm</label>
@@ -435,7 +437,7 @@ button.wkview-on{background:var(--accent);color:#fff;border-color:var(--accent)}
         <th>STT</th><th>Công nhân</th><th>Đi làm (X)</th><th>Vắng (V)</th><th>Nghỉ phép (P)</th><th>Ốm (O)</th><th>Lễ (L)</th><th>Mưa bão (B)</th><th>Nghỉ việc (NV)</th><th>Tổng vắng</th><th>Tổng ngày đã chấm</th>
       </tr></thead><tbody></tbody></table></div>
       <p class="hint" id="wkSumNote" style="margin-top:8px"></p>
-      <button class="btn btn-ghost btn-block" id="btnWkSumExcel" style="margin-top:10px">⬇ Xuất Excel bảng tổng hợp</button>
+      <button class="btn btn-ghost btn-block" id="btnWkSumExcel" style="margin-top:10px"><svg class="ic" aria-hidden="true"><use href="#i-download"></use></svg> Xuất Excel bảng tổng hợp</button>
     </div>
     <div class="card">
       <h3>Thêm công nhân vào nhóm này</h3>
@@ -452,7 +454,7 @@ button.wkview-on{background:var(--accent);color:#fff;border-color:var(--accent)}
 
   <!-- ===== CÀI ĐẶT ===== -->
   <section class="screen" id="scr-settings">
-    <div class="banner-warn" id="setNoQt" style="display:none">⚙️ Tài khoản của bạn không có quyền <b>Quản trị</b> nên không xem/sửa được Cài đặt và Phân quyền. Thông tin tài khoản ở cuối trang này.</div>
+    <div class="banner-warn" id="setNoQt" style="display:none"><svg class="ic" aria-hidden="true"><use href="#i-sliders"></use></svg> Tài khoản của bạn không có quyền <b>Quản trị</b> nên không xem/sửa được Cài đặt và Phân quyền. Thông tin tài khoản ở cuối trang này.</div>
     <div class="card" id="setGeneral">
       <h3>Cài đặt chung</h3>
       <label class="lbl">Tên ứng dụng</label>
@@ -484,15 +486,15 @@ button.wkview-on{background:var(--accent);color:#fff;border-color:var(--accent)}
         <span><b>Chỉ nhập — khóa sửa phiếu đã lưu.</b> Bật lên thì phiếu nào đã nhập sẽ không sửa được nữa trên app; cần sửa, quản trị vào đây tắt chế độ này trước. Hợp khi chia sẻ link cho các nhóm chỉ để nhập số liệu, không cho sửa/xoá.</span>
       </label>
       <div style="height:14px"></div>
-      <button class="btn btn-green" id="btnSaveConfig" style="width:100%">💾 Lưu cài đặt</button>
+      <button class="btn btn-green" id="btnSaveConfig" style="width:100%"><svg class="ic" aria-hidden="true"><use href="#i-save"></use></svg> Lưu cài đặt</button>
     </div>
     <div class="card" id="pqCard">
-      <h3>🛡 Phân quyền — tài khoản đăng nhập</h3>
+      <h3><svg class="ic" aria-hidden="true"><use href="#i-shield"></use></svg> Phân quyền — tài khoản đăng nhập</h3>
       <p class="hint">Mỗi thẻ là 1 tài khoản. <b>Đội</b>: "Cả 2 đội" cho Admin, hoặc ghim tài khoản vào đúng 1 đội — tài khoản bị ghim chỉ thấy và chỉ nhập được dữ liệu của đội đó. Có quyền <b>Thêm</b> mà không có <b>Sửa</b> = chỉ nhập phiếu mới 1 lần, phiếu đã nhập bị khóa. Đổi mật khẩu: gõ mật khẩu mới vào ô Mật khẩu.</p>
       <div id="pqList"></div>
       <div class="row">
         <button class="btn btn-ghost" id="btnAddAccount">+ Thêm TK</button>
-        <button class="btn btn-green grow" id="btnSavePQ">💾 Lưu phân quyền</button>
+        <button class="btn btn-green grow" id="btnSavePQ"><svg class="ic" aria-hidden="true"><use href="#i-save"></use></svg> Lưu phân quyền</button>
       </div>
     </div>
     <div class="card">
@@ -503,25 +505,25 @@ button.wkview-on{background:var(--accent);color:#fff;border-color:var(--accent)}
       • <b>Bản PC:</b> mở link app trên máy tính, hoặc bấm "Mở bản PC" ở đầu trang.</p>
       <p class="hint" id="meInfo"></p>
       <div style="height:8px"></div>
-      <button class="btn btn-ghost" id="btnLogout" style="display:none;width:100%">🚪 Đăng xuất tài khoản này</button>
+      <button class="btn btn-ghost" id="btnLogout" style="display:none;width:100%"><svg class="ic" aria-hidden="true"><use href="#i-logout"></use></svg> Đăng xuất tài khoản này</button>
     </div>
   </section>
 </div>
 
-<div class="savebar" id="saveBar"><div class="in"><button id="btnSaveBar" disabled>💾 Lưu phiếu</button></div></div>
+<div class="savebar" id="saveBar"><div class="in"><button id="btnSaveBar" disabled><svg class="ic" aria-hidden="true"><use href="#i-save"></use></svg> Lưu phiếu</button></div></div>
 
 <nav class="bottomnav"><div class="in">
-  <button data-nav="entry" class="active"><span class="ic">📝</span>Nhập công</button>
-  <button data-nav="daily"><span class="ic">💬</span>Báo cáo ngày</button>
-  <button data-nav="report"><span class="ic">📊</span>Tổng quan</button>
-  <button data-nav="team"><span class="ic">👥</span>Đội</button>
-  <button data-nav="workers"><span class="ic">👷</span>Chấm CN</button>
-  <button data-nav="settings"><span class="ic">⚙️</span>Cài đặt</button>
+  <button data-nav="entry" class="active"><span class="ic"><svg class="ic" aria-hidden="true"><use href="#i-pen"></use></svg></span>Nhập công</button>
+  <button data-nav="daily"><span class="ic"><svg class="ic" aria-hidden="true"><use href="#i-msg"></use></svg></span>Báo cáo ngày</button>
+  <button data-nav="report"><span class="ic"><svg class="ic" aria-hidden="true"><use href="#i-chart"></use></svg></span>Tổng quan</button>
+  <button data-nav="team"><span class="ic"><svg class="ic" aria-hidden="true"><use href="#i-users"></use></svg></span>Đội</button>
+  <button data-nav="workers"><span class="ic"><svg class="ic" aria-hidden="true"><use href="#i-hardhat"></use></svg></span>Chấm CN</button>
+  <button data-nav="settings"><span class="ic"><svg class="ic" aria-hidden="true"><use href="#i-sliders"></use></svg></span>Cài đặt</button>
 </div></nav>
 
 <div class="loginwrap" id="loginWrap">
   <div class="logincard">
-    <h2>🌴 Đăng nhập</h2>
+    <h2><svg class="ic" aria-hidden="true"><use href="#i-leaf"></use></svg> Đăng nhập</h2>
     <p class="hint" id="loginAppName">Sổ Chấm Công Cạo Mủ</p>
     <div style="height:10px"></div>
     <label class="lbl">Chọn tài khoản</label>
@@ -809,7 +811,7 @@ function renderChips(){
   $('groupChips').innerHTML = Array.from({length:CFG.SoNhomMoiDoi},(_,i)=>i+1).map(n=>{
     const r = dayRecs.find(x=>x.Doi===curDoi&&x.Nhom===n);
     const ok = hasData(r);
-    return '<button class="gchip'+(n===curNhom?' sel':'')+'" data-nhom="'+n+'">Nhóm '+n+' <span class="st">'+(ok?'✓ đã nhập':'chưa nhập')+'</span></button>';
+    return '<button class="gchip'+(n===curNhom?' sel':'')+'" data-nhom="'+n+'">Nhóm '+n+' <span class="st">'+(ok?'<svg class="ic" aria-hidden="true"><use href="#i-check"></use></svg> đã nhập':'chưa nhập')+'</span></button>';
   }).join('');
   $('groupChips').querySelectorAll('.gchip').forEach(c=>c.addEventListener('click', async ()=>{
     const n = num(c.dataset.nhom);
@@ -825,7 +827,7 @@ function fillForm(){
   const fv = $('f_Vang'); // ô Vắng luôn là số LƯU GỐC — không đổ số đã derive (tránh ghi ngược khi bấm Lưu)
   if(fv && r.LuuVang!==undefined && r.LuuVang!==null) fv.value = r.LuuVang;
   document.querySelectorAll('#loaiNgaySeg button').forEach(b=>b.classList.toggle('active', b.dataset.v===(r.LoaiNgay||'Thuong')));
-  $('phieuCtx').textContent = tenDoi(curDoi)+' – Nhóm '+curNhom+' · '+fmtDateVN(curDate);
+  $('phieuCtx').textContent = tenDoi(curDoi)+'– Nhóm '+curNhom+'· '+fmtDateVN(curDate);
   dirty = false; $('btnSaveBar').disabled = true;
   refreshAuto();
   applyLock();
@@ -836,10 +838,10 @@ function applyLock(){
   const r = curRec();
   const has = hasData(r);
   let lock = false, msg = '';
-  if(CFG.ChiNhap==='1' && has){ lock = true; msg = '🔒 <b>Phiếu này đã được nhập.</b> Đang bật chế độ <b>Chỉ nhập</b> nên không sửa được. Cần sửa, quản trị vào <b>Cài đặt</b> tắt chế độ Chỉ nhập rồi sửa.'; }
+  if(CFG.ChiNhap==='1' && has){ lock = true; msg = '<svg class="ic" aria-hidden="true"><use href="#i-lock"></use></svg> <b>Phiếu này đã được nhập.</b> Đang bật chế độ <b>Chỉ nhập</b> nên không sửa được. Cần sửa, quản trị vào <b>Cài đặt</b> tắt chế độ Chỉ nhập rồi sửa.'; }
   if(SESSION && !SESSION.open){
-    if(has && !SESSION.sua){ lock = true; msg = '🔒 <b>Phiếu này đã được nhập.</b> Tài khoản của bạn chỉ có quyền Thêm mới, không có quyền Sửa — phiếu đã nhập bị khóa. Cần sửa, liên hệ Admin.'; }
-    else if(!has && !SESSION.them){ lock = true; msg = '🔒 Tài khoản của bạn <b>không có quyền Thêm</b> phiếu mới — chỉ xem được. Cần nhập liệu, liên hệ Admin.'; }
+    if(has && !SESSION.sua){ lock = true; msg = '<svg class="ic" aria-hidden="true"><use href="#i-lock"></use></svg> <b>Phiếu này đã được nhập.</b> Tài khoản của bạn chỉ có quyền Thêm mới, không có quyền Sửa — phiếu đã nhập bị khóa. Cần sửa, liên hệ Admin.'; }
+    else if(!has && !SESSION.them){ lock = true; msg = '<svg class="ic" aria-hidden="true"><use href="#i-lock"></use></svg> Tài khoản của bạn <b>không có quyền Thêm</b> phiếu mới — chỉ xem được. Cần nhập liệu, liên hệ Admin.'; }
   }
   formLocked = lock;
   const lb = $('lockBanner');
@@ -855,10 +857,10 @@ function applyLock(){
   if(bd) bd.style.display = (SESSION && SESSION.xoa && has) ? 'inline-flex' : 'none';
 }
 $('btnDeletePhieu').addEventListener('click', async ()=>{
-  if(!confirm('Xóa hẳn phiếu '+tenDoi(curDoi)+' – Nhóm '+curNhom+' ngày '+fmtDateVN(curDate)+'? Số liệu sẽ bị xóa khỏi Sheet (có ghi ở LICH_SU).')) return;
+  if(!confirm('Xóa hẳn phiếu '+tenDoi(curDoi)+'– Nhóm '+curNhom+'ngày '+fmtDateVN(curDate)+'? Số liệu sẽ bị xóa khỏi Sheet (có ghi ở LICH_SU).')) return;
   try{
     await call('deleteRecord', {Ngay:curDate, Doi:curDoi, Nhom:curNhom});
-    toast('🗑 Đã xóa phiếu – Nhóm '+curNhom+' ngày '+fmtDateVN(curDate));
+    toast('Đã xóa phiếu – Nhóm '+curNhom+'ngày '+fmtDateVN(curDate));
     dirty = false;
     await reloadDay(); fillForm();
   }catch(e){ toast('Lỗi xóa: '+e.message); }
@@ -885,7 +887,7 @@ function refreshAuto(){
   $('roThieu').textContent = fmt(d.ThieuLD);
   const hasManual = (o.TuyenMoiNhap!=='' && o.TuyenMoiNhap!==undefined) || (o.NghiViecNhap!=='' && o.NghiViecNhap!==undefined);
   const cc = o.ChamCN;
-  $('autoTN').textContent = (cc && cc.apDung) ? ('Ngày này đã chấm công từng công nhân — Đi làm '+fmt(cc.x)+' · Vắng '+fmt(cc.vang)+' · Nghỉ việc '+fmt(cc.nghi)+' lấy từ màn Chấm CN, phiếu tự map sang, không cần ghi tay (muốn sửa thì sửa ở màn Chấm CN).') : (cc ? ('Ngày này mới chấm '+fmt(cc.tong)+'/'+fmt(cc.can)+' công nhân ở màn Chấm CN — chưa đủ 80% nên phiếu CHƯA tự map, vẫn tính theo số nhập ở phiếu. Chấm đủ rồi quay lại kiểm tra.') : (hasManual ? 'Tuyển mới / Nghỉ việc đang nhập tay theo báo cáo của đội.' : (prev ? ('Để trống Tuyển mới / Nghỉ việc: tự tính theo phiếu trước → Tuyển mới '+fmt(d.AutoTuyenMoi)+' · Nghỉ việc '+fmt(d.AutoNghiViec)+'.') : 'Chưa có phiếu trước: để trống Tuyển mới / Nghỉ việc sẽ tính là 0.')));
+  $('autoTN').textContent = (cc && cc.apDung) ? ('Ngày này đã chấm công từng công nhân — Đi làm '+fmt(cc.x)+'· Vắng '+fmt(cc.vang)+'· Nghỉ việc '+fmt(cc.nghi)+'lấy từ màn Chấm CN, phiếu tự map sang, không cần ghi tay (muốn sửa thì sửa ở màn Chấm CN).') : (cc ? ('Ngày này mới chấm '+fmt(cc.tong)+'/'+fmt(cc.can)+'công nhân ở màn Chấm CN — chưa đủ 80% nên phiếu CHƯA tự map, vẫn tính theo số nhập ở phiếu. Chấm đủ rồi quay lại kiểm tra.') : (hasManual ? 'Tuyển mới / Nghỉ việc đang nhập tay theo báo cáo của đội.': (prev ? ('Để trống Tuyển mới / Nghỉ việc: tự tính theo phiếu trước → Tuyển mới '+fmt(d.AutoTuyenMoi)+'· Nghỉ việc '+fmt(d.AutoNghiViec)+'.') : 'Chưa có phiếu trước: để trống Tuyển mới / Nghỉ việc sẽ tính là 0.')));
   $('prevNote').textContent = prev ? ('Phiếu trước ('+fmtDateVN(prev.Ngay)+'): định biên '+fmt(prev.DinhBien)+', có mặt '+fmt(prev.CoMat)+'.') : 'Chưa có phiếu trước cho nhóm này.';
 }
 async function saveCurrent(showToast){
@@ -893,7 +895,7 @@ async function saveCurrent(showToast){
   try{
     await call('saveRecord', o);
     dirty = false; $('btnSaveBar').disabled = true;
-    if(showToast) toast('✅ Đã lưu phiếu '+tenDoi(curDoi)+' – Nhóm '+curNhom+' ngày '+fmtDateVN(curDate));
+    if(showToast) toast('Đã lưu phiếu '+tenDoi(curDoi)+'– Nhóm '+curNhom+'ngày '+fmtDateVN(curDate));
     await reloadDay(); fillForm();
     return true;
   }catch(e){ toast('Lỗi lưu: '+e.message); return false; }
@@ -930,10 +932,10 @@ $('btnNhomLe').addEventListener('click',()=>{ setLoaiNgay('Le'); });
 function setLoaiNgay(v){
   document.querySelectorAll('#loaiNgaySeg button').forEach(x=>x.classList.toggle('active', x.dataset.v===v));
   dirty = true; if(!formLocked) $('btnSaveBar').disabled = false; refreshAuto();
-  toast('Đã chọn loại ngày: '+(v==='Mua'?'Mưa':'Lễ / Tết')+' — nhớ bấm Lưu phiếu.');
+  toast('Đã chọn loại ngày: '+(v==='Mua'?'Mưa':'Lễ / Tết')+'— nhớ bấm Lưu phiếu.');
 }
 $('btnCopyY').addEventListener('click', async ()=>{
-  try{ const r = await call('copyYesterday', curDate); toast('Đã sao chép '+r.count+' nhóm từ '+fmtDateVN(r.from)); await reloadDay(); fillForm(); }
+  try{ const r = await call('copyYesterday', curDate); toast('Đã sao chép '+r.count+'nhóm từ '+fmtDateVN(r.from)); await reloadDay(); fillForm(); }
   catch(e){ toast(e.message); }
 });
 async function setDoiLoaiNgay(v){
@@ -947,7 +949,7 @@ async function setDoiLoaiNgay(v){
     const rec = Object.assign({}, ex || {Ngay:curDate, Doi:curDoi, Nhom:nhom, DinhBien: prev?prev.DinhBien:''}, {Ngay:curDate, Doi:curDoi, Nhom:nhom, LoaiNgay:v});
     try{ await call('saveRecord', rec); n++; }catch(e){}
   }
-  toast('Đã đặt '+n+' nhóm của '+tenDoi(curDoi)+' '+label+' ngày '+fmtDateVN(curDate));
+  toast('Đã đặt '+n+'nhóm của '+tenDoi(curDoi)+''+label+'ngày '+fmtDateVN(curDate));
   await reloadDay(); fillForm();
 }
 $('btnDoiMua').addEventListener('click', ()=>setDoiLoaiNgay('Mua'));
@@ -994,12 +996,12 @@ async function copyText(txt, okMsg){
 $('btnZaloNhom').addEventListener('click', ()=>{
   const o = readForm();
   const d = derive(o, prevRecOfCurrent());
-  copyText(buildDailyText(curDate, [d]), '📋 Đã sao chép báo cáo nhóm này — dán vào Zalo là gửi.');
+  copyText(buildDailyText(curDate, [d]), '<svg class="ic" aria-hidden="true"><use href="#i-clip"></use></svg> Đã sao chép báo cáo nhóm này — dán vào Zalo là gửi.');
 });
 $('btnZaloDoi').addEventListener('click', ()=>{ $('dailyDate').value = curDate; go('daily'); });
 function renderDaySum(){
   const rs = dayRecs.filter(r=>r.Doi===curDoi).sort((a,b)=>a.Nhom-b.Nhom);
-  $('daySumTitle').textContent = 'Tổng hợp ngày '+fmtDateVN(curDate)+' · '+tenDoi(curDoi);
+  $('daySumTitle').textContent = 'Tổng hợp ngày '+fmtDateVN(curDate)+'· '+tenDoi(curDoi);
   const anyData = rs.some(hasData);
   const w = $('entryWarn');
   if(!anyData){ w.style.display='block'; w.innerHTML = '<b>'+tenDoi(curDoi)+'</b> chưa có số liệu ngày '+fmtDateVN(curDate)+'. Bấm <b>"Chép hôm qua"</b> để điền nhanh.'; }
@@ -1030,10 +1032,10 @@ async function exportExcel(){
     const recs = (md.records||[]).slice().sort((a,b)=> a.Ngay<b.Ngay?-1 : a.Ngay>b.Ngay?1 : (a.Doi-b.Doi || a.Nhom-b.Nhom));
     const rows = [EXCEL_COLS].concat(recs.map(r=>EXCEL_COLS.map(c=> (r[c]===undefined||r[c]===null)?'':r[c])));
     saveWorkbook(rows, 'cham-cong-'+curMonth);
-    toast('⬇ Đã xuất Excel tháng '+curMonth.slice(5,7)+'/'+curMonth.slice(0,4)+' ('+recs.length+' phiếu).');
+    toast('Đã xuất Excel tháng '+curMonth.slice(5,7)+'/'+curMonth.slice(0,4)+'('+recs.length+'phiếu).');
   }catch(e){ toast('Lỗi xuất Excel: '+e.message); }
 }
-function templateExcel(){ saveWorkbook([EXCEL_COLS], 'mau-cham-cong'); toast('📄 Đã tải file mẫu Excel.'); }
+function templateExcel(){ saveWorkbook([EXCEL_COLS], 'mau-cham-cong'); toast('Đã tải file mẫu Excel.'); }
 function parseCsv(text){
   const rows=[]; let row=[], cur='', q=false;
   for(let i=0;i<text.length;i++){ const ch=text[i];
@@ -1077,7 +1079,7 @@ async function importExcelFile(file){
     }
     if(!recs.length){ toast('Không đọc được dòng hợp lệ nào (file cần các cột Ngay, Doi, Nhom như file mẫu).'); return; }
     const res = await call('importRecords', recs);
-    toast('⬆ Nhập Excel xong: thêm '+res.added+' phiếu, cập nhật '+res.updated+', bỏ qua '+(res.skipped||0)+'.');
+    toast('Nhập Excel xong: thêm '+res.added+'phiếu, cập nhật '+res.updated+', bỏ qua '+(res.skipped||0)+'.');
     const md = await call('getMonthDays', curMonth); monthRecs = md.records || [];
     await reloadDay(); fillForm();
   }catch(e){ toast('Lỗi nhập Excel: '+e.message); }
@@ -1096,7 +1098,7 @@ async function loadDaily(){
   }catch(e){ $('dailyText').textContent = 'Lỗi: '+e.message; }
 }
 $('dailyDate').addEventListener('change', loadDaily);
-$('btnCopyText').addEventListener('click', ()=>copyText($('dailyText').textContent, '📋 Đã sao chép — dán vào Zalo là gửi.'));
+$('btnCopyText').addEventListener('click', ()=>copyText($('dailyText').textContent, 'Đã sao chép — dán vào Zalo là gửi.'));
 
 /* ================== BÁO CÁO TỔNG QUAN ================== */
 document.querySelectorAll('#periodSeg button').forEach(b=>b.addEventListener('click',()=>{
@@ -1195,7 +1197,7 @@ async function loadTeam(){
 function renderTeamMatrix(doi, m){
   const [y, mo] = m.split('-').map(Number);
   const dim = new Date(y, mo, 0).getDate();
-  $('teamMxTitle').textContent = 'Lưới chấm công '+tenDoi(doi)+' — tháng '+mo+'/'+y;
+  $('teamMxTitle').textContent = 'Lưới chấm công '+tenDoi(doi)+'— tháng '+mo+'/'+y;
   let head = '<tr><th>Nhóm</th>';
   for(let d=1; d<=dim; d++){ const dow = new Date(y, mo-1, d).getDay(); head += '<th'+(dow===0?' style="color:var(--danger)"':'')+'>'+d+'</th>'; }
   head += '<th>Tổng</th></tr>';
@@ -1241,11 +1243,11 @@ async function renderTeamCheck(){
     sumParts.push(tenDoi(doi)+': '+done+'/'+CFG.SoNhomMoiDoi+' nhóm đã nhập');
     html += '<div style="margin:8px 0 6px"><b>'+tenDoi(doi)+'</b> — '+fmtDateVN(date)+'</div><div>' +
       rs.sort((a,b)=>a.Nhom-b.Nhom).map(r=> hasData(r)
-        ? '<span class="stchip st-ok">Nhóm '+r.Nhom+' ✓ '+fmt(r.CongThuong)+' công · có mặt '+fmt(r.CoMat)+'</span>'
+        ? '<span class="stchip st-ok">Nhóm '+r.Nhom+' <svg class="ic" aria-hidden="true"><use href="#i-check"></use></svg> '+fmt(r.CongThuong)+' công · có mặt '+fmt(r.CoMat)+'</span>'
         : '<span class="stchip st-no">Nhóm '+r.Nhom+' — chưa nhập</span>').join('') + '</div>';
   });
   $('teamCheckBox').innerHTML = html || '<p class="hint">Chưa có dữ liệu.</p>';
-  $('teamCheckSum').textContent = sumParts.join(' · ');
+  $('teamCheckSum').textContent = sumParts.join('· ');
 }
 $('tDoiSel').addEventListener('change', loadTeam);
 $('tMonth').addEventListener('change', loadTeam);
@@ -1273,7 +1275,7 @@ function renderPQ(){
       + '<label class="lbl">Mật khẩu</label><input type="text" data-i="'+i+'" data-k="p" value="'+String(a.p||'').replace(/"/g,'&quot;')+'">'
       + '<div class="cks">'+ck('xem','Xem')+ck('them','Thêm')+ck('sua','Sửa')+ck('xoa','Xóa')+ck('qt','Quản trị')
       + '<label><input type="checkbox" data-i="'+i+'" data-k="all"'+all+'> <b>Toàn bộ</b></label></div>'
-      + '<div style="margin-top:8px;text-align:right"><button class="qbtn" data-del="'+i+'">✕ Xóa tài khoản này</button></div>'
+      + '<div style="margin-top:8px;text-align:right"><button class="qbtn" data-del="'+i+'"><svg class="ic" aria-hidden="true"><use href="#i-x"></use></svg> Xóa tài khoản này</button></div>'
       + '</div>';
   }).join('');
   box.querySelectorAll('input, select').forEach(el=>{
@@ -1298,14 +1300,14 @@ $('btnSavePQ').addEventListener('click', async ()=>{
     const res = await call('saveAccounts', PQ);
     PQ = res.accounts || PQ;
     renderPQ();
-    toast('✅ Đã lưu phân quyền ('+PQ.length+' tài khoản).');
+    toast('Đã lưu phân quyền ('+PQ.length+'tài khoản).');
   }catch(e){ toast('Lỗi: '+e.message); }
 });
 
 /* ================== CÀI ĐẶT ================== */
 function applyConfig(){
   document.documentElement.style.setProperty('--accent', CFG.MauChuDao || '#1B7A43');
-  $('appNameTop').textContent = '🌴 ' + CFG.TenUngDung;
+  $('appNameTop').textContent = ''+ CFG.TenUngDung;
   $('c_TenUngDung').value=CFG.TenUngDung; $('c_TenDoi1').value=CFG.TenDoi1; $('c_TenDoi2').value=CFG.TenDoi2;
   $('c_SoNhomMoiDoi').value=CFG.SoNhomMoiDoi; $('c_MauChuDao').value=CFG.MauChuDao||'#1B7A43';
   $('c_ChiNhap').checked = (CFG.ChiNhap==='1');
@@ -1319,7 +1321,7 @@ $('btnSaveConfig').addEventListener('click', async ()=>{
   CFG.SoNhomMoiDoi=num($('c_SoNhomMoiDoi').value)||7;
   CFG.ChiNhap = $('c_ChiNhap').checked ? '1' : '0';
   try{ await call('saveConfig', {TenUngDung:CFG.TenUngDung,TenDoi1:CFG.TenDoi1,TenDoi2:CFG.TenDoi2,SoNhomMoiDoi:String(CFG.SoNhomMoiDoi),MauChuDao:CFG.MauChuDao,ChiNhap:CFG.ChiNhap});
-    applyConfig(); buildTrangBiRows(); toast('✅ Đã lưu cài đặt.'); }
+    applyConfig(); buildTrangBiRows(); toast('Đã lưu cài đặt.'); }
   catch(e){ toast('Lỗi: '+e.message); }
 });
 
@@ -1341,7 +1343,7 @@ $('btnLogin').addEventListener('click', async ()=>{
     hideLogin();
     startApp(boot);
   }catch(e){
-    $('loginErr').textContent = (e.message==='NEED_LOGIN') ? 'Sai mật khẩu — nhập lại.' : ('Lỗi: '+e.message);
+    $('loginErr').textContent = (e.message==='NEED_LOGIN') ? 'Sai mật khẩu — nhập lại.': ('Lỗi: '+e.message);
   }
 });
 $('loginPin').addEventListener('keydown', e=>{ if(e.key==='Enter') $('btnLogin').click(); });
@@ -1374,7 +1376,7 @@ function updateSaveWkBtn(){
   const b = $('btnSaveWk'); if(!b) return;
   const n = wkPendCount();
   b.disabled = n === 0;
-  b.textContent = n ? ('💾 Lưu chấm công (' + n + ' thay đổi chưa lưu)') : '💾 Lưu chấm công';
+  b.innerHTML = n ? ('<svg class="ic" aria-hidden="true"><use href="#i-save"></use></svg> Lưu chấm công (' + n + ' thay đổi chưa lưu)') : '<svg class="ic" aria-hidden="true"><use href="#i-save"></use></svg> Lưu chấm công';
 }
 function escA(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 async function loadWorkers(){
@@ -1397,8 +1399,8 @@ function renderWk(doi, nhom, m){
   $('btnViewMonth').classList.toggle('wkview-on', wkView === 'month');
   $('wkDate').value = m + '-' + String(wkSelDay).padStart(2, '0');
   const cd = wkDayCounts(wkSelDay, m);
-  $('wkDayLabel').textContent = 'ngày ' + wkSelDay + '/' + mo + '/' + y + ' — Đi làm: ' + cd.X + ' · Vắng: ' + (cd.V + cd.P + cd.O + cd.L + cd.B) + ' · Nghỉ hẳn: ' + cd.NV;
-  $('wkTitle').textContent = 'Bảng chấm ' + tenDoi(doi) + ' – Nhóm ' + nhom + ' · tháng ' + mo + '/' + y + ' (' + wkWorkers.filter(w=>w.DangLam).length + ' CN đang làm)';
+  $('wkDayLabel').textContent = 'ngày '+ wkSelDay + '/'+ mo + '/'+ y + '— Đi làm: '+ cd.X + '· Vắng: '+ (cd.V + cd.P + cd.O + cd.L + cd.B) + '· Nghỉ hẳn: '+ cd.NV;
+  $('wkTitle').textContent = 'Bảng chấm '+ tenDoi(doi) + '– Nhóm '+ nhom + '· tháng '+ mo + '/'+ y + '('+ wkWorkers.filter(w=>w.DangLam).length + 'CN đang làm)';
   $('wkEmpty').style.display = wkWorkers.length ? 'none' : 'block';
   if(wkView === 'day') renderWkDay(doi, nhom, m); else renderWkGrid(doi, nhom, m);
   renderWkSummary(doi, nhom, m);
@@ -1410,7 +1412,7 @@ function renderWkDay(doi, nhom, m){
   const c = wkDayCounts(wkSelDay, m);
   const vang = c.V + c.P + c.O + c.L + c.B;
   const active = wkWorkers.filter(w=>w.DangLam).length;
-  $('wkDaySummary').textContent = 'Ngày ' + wkSelDay + '/' + mo + '/' + y + ' — Đi làm: ' + c.X + ' · Vắng: ' + vang + ' (vắng ' + c.V + ' · nghỉ ' + c.P + ' · ốm ' + c.O + ') · Nghỉ hẳn: ' + c.NV + ' · Chưa chấm: ' + Math.max(0, active - c.X - vang - c.NV) + ' / ' + active + ' CN đang làm. Chạm vào trạng thái để chấm (chạm lại để bỏ); chọn xong bấm 💾 Lưu chấm công mới ghi vào Sheet; ô ghi chú mở khi công nhân vắng/nghỉ.';
+  $('wkDaySummary').textContent = 'Ngày '+ wkSelDay + '/'+ mo + '/'+ y + '— Đi làm: '+ c.X + '· Vắng: '+ vang + '(vắng '+ c.V + '· nghỉ '+ c.P + '· ốm '+ c.O + ') · Nghỉ hẳn: '+ c.NV + '· Chưa chấm: '+ Math.max(0, active - c.X - vang - c.NV) + '/ '+ active + 'CN đang làm. Chạm vào trạng thái để chấm (chạm lại để bỏ); chọn xong bấm  Lưu chấm công mới ghi vào Sheet; ô ghi chú mở khi công nhân vắng/nghỉ.';
   const list = wkWorkers.filter(w => w.DangLam || wkEffMark(w.MaCN, ds, m) || wkEffNote(w.MaCN, ds, m));
   $('wkDayList').innerHTML = list.map(w=>{
     const mk = wkEffMark(w.MaCN, ds, m);
@@ -1431,7 +1433,7 @@ function renderWkDay(doi, nhom, m){
     const cur = wkEffMark(ma, ds, m);
     const nxt = (cur === k) ? '' : k;
     wkSetPend(m + '-' + ds.padStart(2, '0'), ma, nxt, undefined);
-    if(nxt === 'NV') toast('🚫 ' + w.HoTen + ': đã chọn Nghỉ hẳn — bấm 💾 Lưu chấm công để ghi (tài khoản có quyền Sửa thì app cũng ẩn khỏi danh sách).');
+    if(nxt === 'NV') toast(''+ w.HoTen + ': đã chọn Nghỉ hẳn — bấm  Lưu chấm công để ghi (tài khoản có quyền Sửa thì app cũng ẩn khỏi danh sách).');
     renderWk(doi, nhom, m);
   }));
   $('wkDayList').querySelectorAll('[data-note]').forEach(inp=>inp.addEventListener('change', ()=>{
@@ -1505,11 +1507,11 @@ $('btnFillX').addEventListener('click', ()=>{
   wkWorkers.filter(w=>w.DangLam).forEach(w=>{
     if(!wkEffMark(w.MaCN, wkSelDay, m)){ wkSetPend(wkIsoOf(m, wkSelDay), w.MaCN, 'X', undefined); n++; }
   });
-  toast(n ? ('✓ Đã chọn Đi làm cho ' + n + ' công nhân ngày ' + wkSelDay + ' — bấm 💾 Lưu chấm công để ghi vào Sheet.') : ('Ngày ' + wkSelDay + ' không còn ô trống nào để chấm đi làm.'));
+  toast(n ? ('Đã chọn Đi làm cho '+ n + 'công nhân ngày '+ wkSelDay + '— bấm  Lưu chấm công để ghi vào Sheet.') : ('Ngày '+ wkSelDay + 'không còn ô trống nào để chấm đi làm.'));
   renderWk(doi, nhom, m);
 });
 $('btnClearDay').addEventListener('click', ()=>{
-  if(!confirm('Xóa toàn bộ chấm công ngày ' + wkSelDay + ' của nhóm này? (Chỉ thật sự xóa khi bấm 💾 Lưu chấm công)')) return;
+  if(!confirm('Xóa toàn bộ chấm công ngày '+ wkSelDay + 'của nhóm này? (Chỉ thật sự xóa khi bấm  Lưu chấm công)')) return;
   const doi = (SESSION && SESSION.doi) ? SESSION.doi : num($('wDoiSel').value) || 1;
   const nhom = num($('wNhomSel').value) || 1;
   const m = $('wMonth').value || curMonth;
@@ -1517,7 +1519,7 @@ $('btnClearDay').addEventListener('click', ()=>{
   wkWorkers.forEach(w=>{
     if(wkEffMark(w.MaCN, wkSelDay, m) || wkEffNote(w.MaCN, wkSelDay, m)){ wkSetPend(wkIsoOf(m, wkSelDay), w.MaCN, '', ''); n++; }
   });
-  toast(n ? ('✕ Đã chọn xóa chấm của ' + n + ' công nhân ngày ' + wkSelDay + ' — bấm 💾 Lưu chấm công để ghi vào Sheet.') : 'Ngày này chưa có ai được chấm.');
+  toast(n ? ('Đã chọn xóa chấm của '+ n + 'công nhân ngày '+ wkSelDay + '— bấm  Lưu chấm công để ghi vào Sheet.') : 'Ngày này chưa có ai được chấm.');
   renderWk(doi, nhom, m);
 });
 $('btnSaveWk').addEventListener('click', async ()=>{
@@ -1526,9 +1528,9 @@ $('btnSaveWk').addEventListener('click', async ()=>{
   try{
     const r = await call('saveMarksBatch', {items});
     wkPending = {}; updateSaveWkBtn();
-    toast('💾 Đã lưu ' + (r.count || items.length) + ' thay đổi chấm công vào Sheet.' + ((r.deactivated && r.deactivated.length) ? ' Đã cho nghỉ hẳn ' + r.deactivated.length + ' công nhân (chấm NV).' : ''));
+    toast('Đã lưu '+ (r.count || items.length) + 'thay đổi chấm công vào Sheet.'+ ((r.deactivated && r.deactivated.length) ? 'Đã cho nghỉ hẳn '+ r.deactivated.length + 'công nhân (chấm NV).': ''));
     loadWorkers();
-  }catch(e){ toast('Lỗi lưu chấm công: ' + e.message); }
+  }catch(e){ toast('Lỗi lưu chấm công: '+ e.message); }
 });
 function wkSummaryRows(m){
   const dim = new Date(Number(m.slice(0,4)), Number(m.slice(5,7)), 0).getDate();
@@ -1542,7 +1544,7 @@ function wkSummaryRows(m){
 }
 function renderWkSummary(doi, nhom, m){
   const [y, mo] = m.split('-').map(Number);
-  $('wkSumTitle').textContent = 'Tổng hợp chấm công tháng ' + mo + '/' + y + ' — ' + tenDoi(doi) + ' · Nhóm ' + nhom;
+  $('wkSumTitle').textContent = 'Tổng hợp chấm công tháng '+ mo + '/'+ y + '— '+ tenDoi(doi) + '· Nhóm '+ nhom;
   const rows = wkSummaryRows(m);
   const tot = {X:0,V:0,P:0,O:0,L:0,B:0,NV:0,TongVang:0,TongCham:0};
   rows.forEach(r=>{ Object.keys(tot).forEach(k=>{ tot[k] += r.c[k]; }); });
@@ -1550,7 +1552,7 @@ function renderWkSummary(doi, nhom, m){
     '<tr><td>'+r.w.STT+'</td><td><b>'+r.w.HoTen+'</b>'+(r.w.DangLam ? '' : ' <span class="badge b-none">đã nghỉ hẳn</span>')+'</td><td><b>'+r.c.X+'</b></td><td>'+r.c.V+'</td><td>'+r.c.P+'</td><td>'+r.c.O+'</td><td>'+r.c.L+'</td><td>'+r.c.B+'</td><td>'+r.c.NV+'</td><td>'+r.c.TongVang+'</td><td>'+r.c.TongCham+'</td></tr>'
   ).join('') || '<tr><td colspan="11" style="text-align:left">Chưa có công nhân nào.</td></tr>')
   + '<tr class="tot"><td></td><td>TỔNG CỘNG (' + rows.length + ' công nhân)</td><td>'+tot.X+'</td><td>'+tot.V+'</td><td>'+tot.P+'</td><td>'+tot.O+'</td><td>'+tot.L+'</td><td>'+tot.B+'</td><td>'+tot.NV+'</td><td>'+tot.TongVang+'</td><td>'+tot.TongCham+'</td></tr>';
-  $('wkSumNote').textContent = 'Tổng vắng = V + P + O + L + B (không tính NV). Tổng ngày đã chấm = Đi làm + Tổng vắng + NV.' + (wkPendCount() ? ' Đang có ' + wkPendCount() + ' thay đổi chưa bấm Lưu — bảng này đã tính cả các thay đổi đó.' : '');
+  $('wkSumNote').textContent = 'Tổng vắng = V + P + O + L + B (không tính NV). Tổng ngày đã chấm = Đi làm + Tổng vắng + NV.'+ (wkPendCount() ? 'Đang có '+ wkPendCount() + 'thay đổi chưa bấm Lưu — bảng này đã tính cả các thay đổi đó.': '');
 }
 $('btnWkSumExcel').addEventListener('click', ()=>{
   const doi = (SESSION && SESSION.doi) ? SESSION.doi : num($('wDoiSel').value) || 1;
@@ -1565,7 +1567,7 @@ $('btnWkSumExcel').addEventListener('click', ()=>{
     .concat(rows.map(r=>[r.w.STT, r.w.HoTen, r.w.TenKhmer || '', r.c.X, r.c.V, r.c.P, r.c.O, r.c.L, r.c.B, r.c.NV, r.c.TongVang, r.c.TongCham]))
     .concat([['', 'TỔNG CỘNG (' + rows.length + ' công nhân)', '', tot.X, tot.V, tot.P, tot.O, tot.L, tot.B, tot.NV, tot.TongVang, tot.TongCham]]);
   saveWorkbook(aoa, 'tong-hop-cham-cong-' + m + '-doi' + doi + '-nhom' + nhom);
-  toast('⬇ Đã xuất Excel bảng tổng hợp tháng ' + mo + '/' + y + '.');
+  toast('Đã xuất Excel bảng tổng hợp tháng '+ mo + '/'+ y + '.');
 });
 $('btnAddWorker').addEventListener('click', async ()=>{
   const name = $('nwName').value.trim();
@@ -1575,7 +1577,7 @@ $('btnAddWorker').addEventListener('click', async ()=>{
   try{
     await call('saveWorker', {Doi: doi, Nhom: nhom, HoTen: name, PhanCao: $('nwPhan').value.trim(), TenKhmer: $('nwKhmer').value.trim()});
     $('nwName').value = ''; $('nwPhan').value = ''; $('nwKhmer').value = '';
-    toast('👷 Đã thêm công nhân ' + name + ' vào ' + tenDoi(doi) + ' – Nhóm ' + nhom + '.');
+    toast('Đã thêm công nhân '+ name + 'vào '+ tenDoi(doi) + '– Nhóm '+ nhom + '.');
     loadWorkers();
   }catch(e){ toast('Lỗi: '+e.message); }
 });
@@ -1587,9 +1589,9 @@ function startApp(boot){
   const today = (boot && boot.today) || '2026-10-24';
   if(SESSION){
     const b = $('adminBadge'); b.style.display='inline-block';
-    b.textContent = '👤 ' + SESSION.name + (SESSION.doi ? ' · Đội '+SESSION.doi : '');
-    $('meInfo').textContent = 'Tài khoản đang dùng: '+SESSION.u+' ('+SESSION.name+') — Quyền: '
-      + ['xem','them','sua','xoa','qt'].map(k=>({xem:'Xem',them:'Thêm',sua:'Sửa',xoa:'Xóa',qt:'Quản trị'})[k]+' '+(SESSION[k]?'✓':'✗')).join(' · ')
+    b.textContent = ''+ SESSION.name + (SESSION.doi ? '· Đội '+SESSION.doi : '');
+    $('meInfo').textContent = 'Tài khoản đang dùng: '+SESSION.u+'('+SESSION.name+') — Quyền: '
+      + ['xem','them','sua','xoa','qt'].map(k=>({xem:'Xem',them:'Thêm',sua:'Sửa',xoa:'Xóa',qt:'Quản trị'})[k]+' '+(SESSION[k]?'<svg class="ic" aria-hidden="true"><use href="#i-check"></use></svg>':'<svg class="ic" aria-hidden="true"><use href="#i-x"></use></svg>')).join(' · ')
       + (SESSION.doi ? ' · Chỉ dữ liệu Đội '+SESSION.doi : ' · Cả 2 đội')
       + (SESSION.open ? ' · Chế độ mở (chưa bật đăng nhập)' : '');
     $('btnLogout').style.display = SESSION.open ? 'none' : 'inline-flex';
@@ -1629,7 +1631,7 @@ function startApp(boot){
       loginAccList = boot.accounts || [];
       loginSel = loginAccList.length ? loginAccList[0].u : '';
       if(boot.config){ CFG = Object.assign(CFG, boot.config); applyConfig(); }
-      $('loginAppName').textContent = CFG.TenUngDung + ' — chọn tài khoản của bạn để tiếp tục';
+      $('loginAppName').textContent = CFG.TenUngDung + '— chọn tài khoản của bạn để tiếp tục';
       renderLoginAccs();
       showLogin();
       return;
